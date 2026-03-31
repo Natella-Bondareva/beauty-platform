@@ -8,6 +8,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.14">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.17.0" />
@@ -15,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BeautyPlatform.Application\CRMService.Application.csproj" />
+    <ProjectReference Include="..\BeautyPlatform.Infrastructure\CRMService.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
