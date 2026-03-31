@@ -1,0 +1,9 @@
+{
+  "name": "beauty-platform",
+  "scripts": {
+    "start": "concurrently \"dotnet run --project backend/BeautyPlatform.API\" \"npm start --prefix frontend/beauty-platform-ui\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
+  }
+}

@@ -1,0 +1,33 @@
+# 🔹 .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+
+# 🔹 Visual Studio
+.vs/
+*.csproj.user
+
+# 🔹 Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 🔹 React build
+build/
+dist/
+
+# 🔹 Environment
+.env
+
+# 🔹 Logs
+logs/
+*.log
+
+# 🔹 OS
+.DS_Store
+Thumbs.db
