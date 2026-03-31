@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\BeautyPlatform.Domain\BeautyPlatform.Domain.csproj" />
+    <ProjectReference Include="..\BeautyPlatform.Domain\CRMService.Domain.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

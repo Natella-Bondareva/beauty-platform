@@ -7,6 +7,10 @@ obj/
 *.dll
 *.exe
 
+# 🔹 Test results
+TestResults/
+*.trx
+
 # 🔹 Visual Studio
 .vs/
 *.csproj.user
@@ -14,8 +18,6 @@ obj/
 # 🔹 Node.js
 node_modules/
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
 # 🔹 React build
 build/

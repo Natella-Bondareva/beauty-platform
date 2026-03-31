@@ -1,11 +1,11 @@
-﻿var builder = WebApplication.CreateBuilder(args);
+﻿using Serilog;
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+
+var builder = WebApplication.CreateBuilder(args);
+
 builder.Services.AddOpenApi();
 
-
-builder.Services.AddControllers(); // ← ВАЖЛИВО
+builder.Services.AddControllers(); 
 
 builder.Services.AddCors(options =>
 {
@@ -18,7 +18,15 @@ builder.Services.AddCors(options =>
         });
 });
 
-// ← ВАЖЛИВО
+
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 
 
 var app = builder.Build();
@@ -26,6 +34,9 @@ var app = builder.Build();
 app.UseHttpsRedirection();   // 🔥 спочатку
 
 app.UseCors("AllowFrontend"); // 🔥 потім CORS
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 
 app.MapControllers(); 

@@ -3,13 +3,15 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeautyPlatform.API", "BeautyPlatform.API\BeautyPlatform.API.csproj", "{0CB8D0D1-B583-40E5-842C-4E396663FD6D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CRMService.API", "BeautyPlatform.API\CRMService.API.csproj", "{0CB8D0D1-B583-40E5-842C-4E396663FD6D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeautyPlatform.Application", "BeautyPlatform.Application\BeautyPlatform.Application.csproj", "{EDA90212-2A47-4CD8-9B26-C1B48ABD2343}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CRMService.Application", "BeautyPlatform.Application\CRMService.Application.csproj", "{EDA90212-2A47-4CD8-9B26-C1B48ABD2343}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeautyPlatform.Domain", "BeautyPlatform.Domain\BeautyPlatform.Domain.csproj", "{CFC9978D-615B-4C16-8705-26A2B2C7A1E5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CRMService.Domain", "BeautyPlatform.Domain\CRMService.Domain.csproj", "{CFC9978D-615B-4C16-8705-26A2B2C7A1E5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeautyPlatform.Infrastructure", "BeautyPlatform.Infrastructure\BeautyPlatform.Infrastructure.csproj", "{DF2A68F1-2B53-4CC5-8C24-D1710D2A0818}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CRMService.Infrastructure", "BeautyPlatform.Infrastructure\CRMService.Infrastructure.csproj", "{DF2A68F1-2B53-4CC5-8C24-D1710D2A0818}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CRMService.Tests", "BeautyPlatform.Tests\CRMService.Tests.csproj", "{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -69,8 +71,23 @@ Global
 		{DF2A68F1-2B53-4CC5-8C24-D1710D2A0818}.Release|x64.Build.0 = Release|Any CPU
 		{DF2A68F1-2B53-4CC5-8C24-D1710D2A0818}.Release|x86.ActiveCfg = Release|Any CPU
 		{DF2A68F1-2B53-4CC5-8C24-D1710D2A0818}.Release|x86.Build.0 = Release|Any CPU
+		{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}.Debug|x64.Build.0 = Debug|Any CPU
+		{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}.Debug|x86.Build.0 = Debug|Any CPU
+		{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}.Release|x64.ActiveCfg = Release|Any CPU
+		{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}.Release|x64.Build.0 = Release|Any CPU
+		{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}.Release|x86.ActiveCfg = Release|Any CPU
+		{5E0C09F8-2F3F-4F95-960D-4A1B087966A7}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8D325A43-46A1-418C-A5DA-622F17687A9E}
 	EndGlobalSection
 EndGlobal
