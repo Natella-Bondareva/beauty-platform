@@ -1,6 +1,14 @@
-﻿using CRMService.Infrastructure.Persistence;
+﻿using CRMService.Application.Features.Auth.Commands;
+using CRMService.Application.Features.Auth.Interfaces;
+using CRMService.Domain.Abstractions;
+using CRMService.Infrastructure.Persistence;
+using CRMService.Infrastructure.Repositories;
+using CRMService.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,6 +40,32 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+builder.Services.AddScoped<IJwtTokenProvider, JwtTokenProvider>();
+
+builder.Services.AddScoped<RegisterUserCommandHandler>();
+builder.Services.AddScoped<LoginUserCommandHandler>();
+
+var key = Encoding.UTF8.GetBytes("SUPER_SECRET_KEY_12345");
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key)
+    };
+});
+
 var app = builder.Build();
 
 app.UseHttpsRedirection();   // 🔥 спочатку
@@ -40,6 +74,8 @@ app.UseCors("AllowFrontend"); // 🔥 потім CORS
 
 app.UseSwagger();
 app.UseSwaggerUI();
+app.UseAuthentication();
+app.UseAuthorization();
 
 
 app.MapControllers(); 

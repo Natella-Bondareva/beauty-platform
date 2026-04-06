@@ -1,5 +1,6 @@
 ﻿using CRMService.Application.Features.Auth.Interfaces;
 using CRMService.Domain.Entities;
+using Microsoft.Extensions.Configuration; // Додай цей namespace
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -9,7 +10,15 @@ namespace CRMService.Infrastructure.Security;
 
 public class JwtTokenProvider : IJwtTokenProvider
 {
-    private readonly string _secret = "SUPER_SECRET_KEY_12345"; // потім у config
+    private readonly string _secret;
+
+    // Впроваджуємо IConfiguration через конструктор
+    public JwtTokenProvider(IConfiguration configuration)
+    {
+        // "JwtSettings:Secret" — це шлях до ключа в ієрархії JSON
+        _secret = configuration["JwtSettings:Secret"]
+                  ?? throw new InvalidOperationException("JWT Secret key is not configured.");
+    }
 
     public string GenerateToken(User user)
     {
@@ -21,10 +30,12 @@ public class JwtTokenProvider : IJwtTokenProvider
             new Claim("SalonId", user.SalonId.ToString())
         };
 
+        // Тепер використовуємо _secret, отриманий з конфігурації
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
+            // Не забудь додати Issuer та Audience, якщо ти їх перевіряєш у Middleware
             expires: DateTime.UtcNow.AddMinutes(30),
             claims: claims,
             signingCredentials: creds

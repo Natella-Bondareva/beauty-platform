@@ -33,3 +33,17 @@ logs/
 # 🔹 OS
 .DS_Store
 Thumbs.db
+
+# 🔹 Додаткові .NET файли
+.vs/
+[Dd]ebug/
+[Rr]elease/
+*.usersecrets
+appsettings.Development.json
+
+# 🔹 JetBrains (Rider)
+.idea/
+*.sln.iml
+
+# 🔹 Публікація (Publish)
+publish/

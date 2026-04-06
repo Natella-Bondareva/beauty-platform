@@ -24,4 +24,11 @@
     <Folder Include="Integration\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\BeautyPlatform.API\CRMService.API.csproj" />
+    <ProjectReference Include="..\BeautyPlatform.Application\CRMService.Application.csproj" />
+    <ProjectReference Include="..\BeautyPlatform.Domain\CRMService.Domain.csproj" />
+    <ProjectReference Include="..\BeautyPlatform.Infrastructure\CRMService.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>

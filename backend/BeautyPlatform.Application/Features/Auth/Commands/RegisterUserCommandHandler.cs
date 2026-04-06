@@ -31,7 +31,7 @@ namespace CRMService.Application.Features.Auth.Commands
                 throw new Exception("User already exists");
 
             var passwordHash = _passwordHasher.Hash(command.Password);
-
+            var roleId = Guid.Parse("11111111-1111-1111-1111-111111111111");
             // 🔥 тимчасово (потім буде Salon creation)
             var user = User.Create(
                 salonId: Guid.NewGuid(),
@@ -39,7 +39,7 @@ namespace CRMService.Application.Features.Auth.Commands
                 passwordHash: passwordHash,
                 firstName: command.FirstName,
                 lastName: command.LastName,
-                roleId: Guid.Empty // потім замінимо на RoleId
+                roleId: roleId // потім замінимо на RoleId
             );
 
             await _userRepository.AddAsync(user);
