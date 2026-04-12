@@ -11,33 +11,40 @@ namespace CRMService.Infrastructure.Security;
 public class JwtTokenProvider : IJwtTokenProvider
 {
     private readonly string _secret;
+    private readonly string _issuer;
+    private readonly string _audience;
 
-    // Впроваджуємо IConfiguration через конструктор
     public JwtTokenProvider(IConfiguration configuration)
     {
-        // "JwtSettings:Secret" — це шлях до ключа в ієрархії JSON
         _secret = configuration["JwtSettings:Secret"]
-                  ?? throw new InvalidOperationException("JWT Secret key is not configured.");
+            ?? throw new InvalidOperationException("JWT Secret is not configured.");
+        _issuer = configuration["JwtSettings:Issuer"]
+            ?? throw new InvalidOperationException("JWT Issuer is not configured.");
+        _audience = configuration["JwtSettings:Audience"]
+            ?? throw new InvalidOperationException("JWT Audience is not configured.");
     }
 
     public string GenerateToken(User user)
     {
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), // було "sub"
             new Claim(ClaimTypes.Email, user.Email),
             new Claim(ClaimTypes.Role, user.Role.Name),
-            new Claim("SalonId", user.SalonId.ToString())
         };
 
-        // Тепер використовуємо _secret, отриманий з конфігурації
+        // Додаємо SalonId тільки якщо він вже є
+        if (user.SalonId.HasValue)
+            claims.Add(new Claim("salon_id", user.SalonId.Value.ToString()));
+
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
-            // Не забудь додати Issuer та Audience, якщо ти їх перевіряєш у Middleware
-            expires: DateTime.UtcNow.AddMinutes(30),
+            issuer: _issuer,
+            audience: _audience,
             claims: claims,
+            expires: DateTime.UtcNow.AddHours(8),
             signingCredentials: creds
         );
 

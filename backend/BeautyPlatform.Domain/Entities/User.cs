@@ -10,26 +10,20 @@ namespace CRMService.Domain.Entities
     public class User
     {
         public Guid Id { get; private set; }
-        public Guid SalonId { get; private set; }
-
+        public Guid? SalonId { get; private set; } // nullable — салон ще не створений
         public string Email { get; private set; } = null!;
         public string PasswordHash { get; private set; } = null!;
-
         public string FirstName { get; private set; } = null!;
         public string LastName { get; private set; } = null!;
-
         public Guid RoleId { get; private set; }
-
         public bool IsActive { get; private set; }
 
-        // Navigation
         public Role Role { get; private set; } = null!;
 
-        private User() { } // EF Core
+        private User() { }
 
         private User(
             Guid id,
-            Guid salonId,
             string email,
             string passwordHash,
             string firstName,
@@ -37,18 +31,16 @@ namespace CRMService.Domain.Entities
             Guid roleId)
         {
             Id = id;
-            SalonId = salonId;
             Email = email;
             PasswordHash = passwordHash;
             FirstName = firstName;
             LastName = lastName;
             RoleId = roleId;
             IsActive = true;
+            // SalonId = null — поки не створено салон
         }
 
-        // 🔥 Factory Method (важливо)
         public static User Create(
-            Guid salonId,
             string email,
             string passwordHash,
             string firstName,
@@ -57,13 +49,15 @@ namespace CRMService.Domain.Entities
         {
             if (string.IsNullOrWhiteSpace(email))
                 throw new ArgumentException("Email is required");
-
             if (string.IsNullOrWhiteSpace(passwordHash))
                 throw new ArgumentException("Password hash is required");
+            if (string.IsNullOrWhiteSpace(firstName))
+                throw new ArgumentException("First name is required");
+            if (string.IsNullOrWhiteSpace(lastName))
+                throw new ArgumentException("Last name is required");
 
             return new User(
                 Guid.NewGuid(),
-                salonId,
                 email.ToLower(),
                 passwordHash,
                 firstName,
@@ -71,15 +65,17 @@ namespace CRMService.Domain.Entities
                 roleId);
         }
 
-        // 🔐 Перевірка пароля
-        public bool VerifyPassword(string password, IPasswordHasher hasher)
+        // Викликається після створення салону на другому кроці онбордингу
+        public void AssignToSalon(Guid salonId)
         {
-            return hasher.Verify(password, PasswordHash);
+            if (SalonId.HasValue)
+                throw new InvalidOperationException("User is already assigned to a salon.");
+            SalonId = salonId;
         }
 
-        public void Deactivate()
-        {
-            IsActive = false;
-        }
+        public bool VerifyPassword(string password, IPasswordHasher hasher)
+            => hasher.Verify(password, PasswordHash);
+
+        public void Deactivate() => IsActive = false;
     }
 }

@@ -10,45 +10,59 @@ using System.Threading.Tasks;
 
 namespace CRMService.Application.Features.Auth.Commands
 {
+    // ===== REGISTER HANDLER — без salonId, з токеном =====
+
     public class RegisterUserCommandHandler
     {
         private readonly IUserRepository _userRepository;
+        private readonly IRoleRepository _roleRepository;
         private readonly IPasswordHasher _passwordHasher;
+        private readonly IJwtTokenProvider _jwtProvider;
 
         public RegisterUserCommandHandler(
             IUserRepository userRepository,
-            IPasswordHasher passwordHasher)
+            IRoleRepository roleRepository,
+            IPasswordHasher passwordHasher,
+            IJwtTokenProvider jwtProvider)
         {
             _userRepository = userRepository;
+            _roleRepository = roleRepository;
             _passwordHasher = passwordHasher;
+            _jwtProvider = jwtProvider;
         }
 
         public async Task<AuthResponseDto> Handle(RegisterUserCommand command)
         {
-            var existingUser = await _userRepository.GetByEmailAsync(command.Email);
+            var existing = await _userRepository.GetByEmailAsync(command.Email);
+            if (existing != null)
+                throw new InvalidOperationException("User already exists.");
 
-            if (existingUser != null)
-                throw new Exception("User already exists");
+            // Беремо роль з БД — не хардкодимо GUID
+            var role = await _roleRepository.GetByNameAsync("SalonOwner")
+                ?? throw new InvalidOperationException("Role 'SalonOwner' not found.");
 
             var passwordHash = _passwordHasher.Hash(command.Password);
-            var roleId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-            // 🔥 тимчасово (потім буде Salon creation)
+
             var user = User.Create(
-                salonId: Guid.NewGuid(),
                 email: command.Email,
                 passwordHash: passwordHash,
                 firstName: command.FirstName,
                 lastName: command.LastName,
-                roleId: roleId // потім замінимо на RoleId
+                roleId: role.Id
             );
 
             await _userRepository.AddAsync(user);
 
+            // Повертаємо токен одразу — юзер залогінений після реєстрації
+            // але HasSalon = false — фронтенд перенаправить на крок 2
+            var token = _jwtProvider.GenerateToken(user);
+
             return new AuthResponseDto
             {
-                Token = "", // поки пусто
+                Token = token,
                 Email = user.Email,
-                Role = "Administrator"
+                Role = role.Name,
+                HasSalon = false
             };
         }
     }

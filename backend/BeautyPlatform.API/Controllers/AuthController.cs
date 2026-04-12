@@ -20,40 +20,19 @@ namespace CRMService.API.Controllers
         }
 
         [HttpPost("register")]
+        [AllowAnonymous]
         public async Task<IActionResult> Register(RegisterUserCommand command)
         {
-            try
-            {
-                var result = await _registerHandler.Handle(command);
-
-                return Created("", result); // 201
-            }
-            catch (Exception ex)
-            {
-                if (ex.Message.Contains("exists"))
-                    return Conflict(new { message = ex.Message }); // 409
-
-                return BadRequest(new { message = ex.Message }); // 400
-            }
+            var result = await _registerHandler.Handle(command);
+            return Created("", result);
         }
 
         [HttpPost("login")]
         [AllowAnonymous]
         public async Task<IActionResult> Login(LoginUserCommand command)
         {
-            try
-            {
-                var result = await _loginHandler.Handle(command);
-                return Ok(result);
-            }
-            catch (Exception ex) // Додай параметр ex
-            {
-                // Це допоможе тобі побачити реальну помилку в логах сервера
-                Console.WriteLine($"LOGIN ERROR: {ex.Message}");
-                Console.WriteLine($"STACK TRACE: {ex.StackTrace}");
-
-                return Unauthorized(new { message = "Invalid credentials", debug = ex.Message });
-            }
+            var result = await _loginHandler.Handle(command);
+            return Ok(result);
         }
     }
 }
