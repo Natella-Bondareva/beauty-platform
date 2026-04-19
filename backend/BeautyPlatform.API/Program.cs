@@ -1,14 +1,20 @@
-﻿using CRMService.Application.Features.Auth.Commands;
+﻿using CloudinaryDotNet;
+using CRMService.Application.Features.Auth.Commands;
 using CRMService.Application.Features.Auth.Interfaces;
+using CRMService.Application.Features.Employees.Interfaces;
+using CRMService.Application.Features.Employees.Services;
+using CRMService.Application.Features.Employess.Interfaces;
 using CRMService.Domain.Abstractions;
 using CRMService.Infrastructure.Persistence;
+using CRMService.Infrastructure.Persistence.Configurations;
 using CRMService.Infrastructure.Repositories;
 using CRMService.Infrastructure.Security;
+using CRMService.Infrastructure.Storage;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -61,6 +67,14 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// ===== CLOUDINARY =====
+var cloudinaryConfig = builder.Configuration.GetSection("Cloudinary");
+var account = new Account(
+    cloudinaryConfig["CloudName"],
+    cloudinaryConfig["ApiKey"],
+    cloudinaryConfig["ApiSecret"]);
+builder.Services.AddSingleton(new Cloudinary(account));
+
 // ===== DATABASE =====
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
@@ -74,6 +88,14 @@ builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenProvider, JwtTokenProvider>();
 builder.Services.AddScoped<RegisterUserCommandHandler>();
 builder.Services.AddScoped<LoginUserCommandHandler>();
+builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
+builder.Services.AddScoped<ISpecializationCategoryRepository, SpecializationCategoryRepository>();
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<ISalonServiceService, SalonServiceService>();
+builder.Services.AddScoped<ISpecializationCategoryService, SpecializationCategoryService>();
+builder.Services.AddScoped<IImageStorageService, CloudinaryImageStorageService>();
+
 
 // ===== EXCEPTION HANDLER =====
 builder.Services.AddProblemDetails();

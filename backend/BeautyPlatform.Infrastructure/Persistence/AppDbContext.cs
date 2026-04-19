@@ -13,6 +13,15 @@ namespace CRMService.Infrastructure.Persistence
         public DbSet<Salon> Salons => Set<Salon>();
         public DbSet<User> Users => Set<User>();
         public DbSet<Role> Roles => Set<Role>();
+        public DbSet<SpecializationCategory> SpecializationCategories => Set<SpecializationCategory>();
+        public DbSet<CategoryDefaultService> CategoryDefaultServices => Set<CategoryDefaultService>();
+        public DbSet<Employee> Employees => Set<Employee>();
+        public DbSet<Service> Services => Set<Service>();
+        public DbSet<ServiceImage> ServiceImages => Set<ServiceImage>();
+        public DbSet<EmployeeService> EmployeeServices => Set<EmployeeService>();
+        public DbSet<MasterSchedule> MasterSchedules => Set<MasterSchedule>();
+        public DbSet<EmployeeCategory> EmployeeCategories => Set<EmployeeCategory>();
+
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 

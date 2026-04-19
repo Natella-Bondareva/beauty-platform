@@ -25,6 +25,14 @@ export default function WorkTypeStep({ workType, setWorkType }) {
           onClick={setWorkType}
           img={teamImg}
         />
+        <TeamChoiceCard
+          value="me_and_team"
+          label="I work and my team"
+          description="You work and have a team."
+          selected={workType === 'me_and_team'}
+          onClick={setWorkType}
+          img={null}
+        />
       </div>
     </div>
   );

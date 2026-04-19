@@ -28,15 +28,11 @@ namespace CRMService.Application.Features.Auth.Commands
         public async Task<AuthResponseDto> Handle(LoginUserCommand command)
         {
             var user = await _userRepository.GetByEmailAsync(command.Email.ToLower());
-            Console.WriteLine($"Email: {command.Email}");
-            Console.WriteLine($"Password: {command.Password}");
-            Console.WriteLine($"StoredHash: {user.PasswordHash}");
 
             if (user == null)
                 throw new Exception("Invalid credentials");
 
             var isValid = user.VerifyPassword(command.Password, _passwordHasher);
-            Console.WriteLine(isValid);
 
             if (!isValid)
                 throw new Exception("Invalid credentials");

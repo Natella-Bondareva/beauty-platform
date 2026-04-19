@@ -1,6 +1,4 @@
 import React from 'react';
-import teamImg from '../assets/team.jpg';
-import soloImg from '../assets/solo.jpg';
 
 export default function TeamChoiceCard({ value, label, description, selected, onClick, img }) {
   return (
@@ -18,7 +16,13 @@ export default function TeamChoiceCard({ value, label, description, selected, on
       }}
       onClick={() => onClick(value)}
     >
-      <img src={img} alt={label} style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: '50%', marginBottom: 16 }} />
+      {img ? (
+        <img src={img} alt={label} style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: '50%', marginBottom: 16 }} />
+      ) : (
+        <div style={{ width: 120, height: 120, borderRadius: '50%', backgroundColor: '#f0f0f0', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 48 }}>👤</span>
+        </div>
+      )}
       <h3 style={{ color: 'var(--text-color)', fontWeight: 600, fontSize: 20 }}>{label}</h3>
       <p className="text-secondary" style={{ fontSize: 15 }}>{description}</p>
     </div>
