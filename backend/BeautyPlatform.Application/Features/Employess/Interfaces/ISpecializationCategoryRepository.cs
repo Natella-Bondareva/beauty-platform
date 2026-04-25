@@ -16,5 +16,8 @@ namespace CRMService.Application.Features.Employees.Interfaces
         Task<List<SpecializationCategory>> GetAvailableForSalonAsync(Guid salonId);
         Task AddAsync(SpecializationCategory category);
         Task UpdateAsync(SpecializationCategory category);
+
+        Task<List<SpecializationCategory>> GetActiveBySalonAsync(Guid salonId);
+
     }
 }

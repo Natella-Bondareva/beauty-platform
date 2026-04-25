@@ -78,20 +78,12 @@ export default function AddTeamMemberStep({ teamSubStep, addedMembers, ...props 
 
       {teamSubStep === 3 && (
         <TeamMemberServicesStep
-          employee={props.currentEmployee}
-          salonServices={props.salonServicesList}
-          editingServiceId={props.editingServiceId}
-          editingServiceForm={props.editingServiceForm}
-          onStartEditService={props.onStartEditService}
-          onEditingServiceFormChange={props.onEditingServiceFormChange}
-          onSaveEditService={props.onSaveEditService}
-          onCancelEditService={props.onCancelEditService}
-          onRemoveService={props.onRemoveService}
-          showAddServiceForm={props.showAddServiceForm}
-          setShowAddServiceForm={props.setShowAddServiceForm}
-          customServiceForm={props.customServiceForm}
-          onCustomServiceFormChange={props.onCustomServiceFormChange}
-          onAddCustomService={props.onAddCustomService}
+          currentEmployee={props.currentEmployee}
+          pendingServices={props.pendingServices}
+          onUpdate={props.onUpdatePendingService}
+          onRemove={props.onRemovePendingService}
+          onAdd={props.onAddPendingService}
+          memberCategories={props.memberCategories}
           onAddAnotherMember={props.onAddAnotherMember}
           addedMembers={addedMembers}
           loading={props.loading}

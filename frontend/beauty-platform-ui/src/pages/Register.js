@@ -8,7 +8,7 @@ import CategoryStep from '../components/registration/CategoryStep';
 import SelfRegStep from '../components/registration/SelfRegStep';
 import AddTeamMemberStep from '../components/registration/AddTeamMemberStep';
 import WelcomeStep from '../components/registration/WelcomeStep';
-import { useRegistration } from '../hooks/useRegistration';
+import { useRegistration } from '../features/registration/hooks/useRegistration';
 
 export default function Register() {
   const {
@@ -38,19 +38,10 @@ export default function Register() {
     memberAccountPassword,
     setMemberAccountPassword,
     currentEmployee,
-    salonServicesList,
-    editingServiceId,
-    editingServiceForm,
-    onStartEditService,
-    onEditingServiceFormChange,
-    onSaveEditService,
-    onCancelEditService,
-    onRemoveService,
-    showAddServiceForm,
-    setShowAddServiceForm,
-    customServiceForm,
-    onCustomServiceFormChange,
-    onAddCustomService,
+    pendingServices,
+    onUpdatePendingService,
+    onRemovePendingService,
+    onAddPendingService,
     onAddAnotherMember,
     // Shared
     error,
@@ -121,19 +112,10 @@ export default function Register() {
               memberAccountPassword={memberAccountPassword}
               setMemberAccountPassword={setMemberAccountPassword}
               currentEmployee={currentEmployee}
-              salonServicesList={salonServicesList}
-              editingServiceId={editingServiceId}
-              editingServiceForm={editingServiceForm}
-              onStartEditService={onStartEditService}
-              onEditingServiceFormChange={onEditingServiceFormChange}
-              onSaveEditService={onSaveEditService}
-              onCancelEditService={onCancelEditService}
-              onRemoveService={onRemoveService}
-              showAddServiceForm={showAddServiceForm}
-              setShowAddServiceForm={setShowAddServiceForm}
-              customServiceForm={customServiceForm}
-              onCustomServiceFormChange={onCustomServiceFormChange}
-              onAddCustomService={onAddCustomService}
+              pendingServices={pendingServices}
+              onUpdatePendingService={onUpdatePendingService}
+              onRemovePendingService={onRemovePendingService}
+              onAddPendingService={onAddPendingService}
               onAddAnotherMember={onAddAnotherMember}
               loading={loading}
             />
@@ -178,19 +160,10 @@ export default function Register() {
               memberAccountPassword={memberAccountPassword}
               setMemberAccountPassword={setMemberAccountPassword}
               currentEmployee={currentEmployee}
-              salonServicesList={salonServicesList}
-              editingServiceId={editingServiceId}
-              editingServiceForm={editingServiceForm}
-              onStartEditService={onStartEditService}
-              onEditingServiceFormChange={onEditingServiceFormChange}
-              onSaveEditService={onSaveEditService}
-              onCancelEditService={onCancelEditService}
-              onRemoveService={onRemoveService}
-              showAddServiceForm={showAddServiceForm}
-              setShowAddServiceForm={setShowAddServiceForm}
-              customServiceForm={customServiceForm}
-              onCustomServiceFormChange={onCustomServiceFormChange}
-              onAddCustomService={onAddCustomService}
+              pendingServices={pendingServices}
+              onUpdatePendingService={onUpdatePendingService}
+              onRemovePendingService={onRemovePendingService}
+              onAddPendingService={onAddPendingService}
               onAddAnotherMember={onAddAnotherMember}
               loading={loading}
             />

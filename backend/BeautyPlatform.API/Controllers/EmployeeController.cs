@@ -27,6 +27,16 @@ namespace CRMService.API.Controllers
             return Ok(employees);
         }
 
+        // GET /api/salons/{salonId}/employees/{employeeId}/schedule-constraints
+        [HttpGet("{id}/schedule-constraints")]
+        [Authorize]
+        public async Task<IActionResult> GetScheduleConstraints(Guid salonId, Guid id)
+        {
+            var ownerId = GetUserId();
+            var result = await _employeeService.GetScheduleConstraintsAsync(id, salonId, ownerId);
+            return Ok(result);
+        }
+
         // GET api/salons/{salonId}/employees/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid salonId, Guid id)
@@ -85,7 +95,7 @@ namespace CRMService.API.Controllers
             [FromBody] AssignServiceRequest? request = null)
         {
             var ownerId = GetUserId();
-            await _employeeService.AssignServiceAsync(id, serviceId, request?.PriceOverride, salonId, ownerId);
+            await _employeeService.AssignServiceAsync(id, serviceId, request?.PriceOverride, request?.systemDurationOverride, request?.clientDurationOverride, salonId, ownerId);
             return NoContent();
         }
 
@@ -98,16 +108,18 @@ namespace CRMService.API.Controllers
             return NoContent();
         }
 
-        // PATCH api/salons/{salonId}/employees/{id}/services/{serviceId}/price
-        [HttpPatch("{id}/services/{serviceId}/price")]
-        public async Task<IActionResult> UpdateServicePrice(
-            Guid salonId,
-            Guid id,
-            Guid serviceId,
-            [FromBody] UpdateServicePriceRequest request)
+        [HttpPatch("{id}/services/{serviceId}/overrides")]
+        public async Task<IActionResult> UpdateServiceOverrides(
+            Guid salonId, Guid id, Guid serviceId,
+            [FromBody] UpdateServiceOverridesRequest request)
         {
             var ownerId = GetUserId();
-            await _employeeService.UpdateServicePriceAsync(id, serviceId, request.PriceOverride, salonId, ownerId);
+            await _employeeService.UpdateServiceOverridesAsync(
+                id, serviceId,
+                request.PriceOverride,
+                request.SystemDurationOverride,
+                request.ClientDurationOverride,
+                salonId, ownerId);
             return NoContent();
         }
 
@@ -127,6 +139,10 @@ namespace CRMService.API.Controllers
     }
 
     // ── Request моделі (прості, не варто виносити окремо) ──────────
-    public record AssignServiceRequest(decimal? PriceOverride);
+    public record AssignServiceRequest(decimal? PriceOverride, int? systemDurationOverride, int? clientDurationOverride);
     public record UpdateServicePriceRequest(decimal? PriceOverride);
+    public record UpdateServiceOverridesRequest(
+    decimal? PriceOverride,
+    int? SystemDurationOverride,
+    int? ClientDurationOverride);
 }

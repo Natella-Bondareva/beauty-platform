@@ -1,6 +1,9 @@
-﻿using CRMService.Application.Features.Auth.Interfaces;
+﻿using CRMService.Application.Features.Auth.DTOs;
+using CRMService.Application.Features.Auth.Interfaces;
+using CRMService.Application.Features.Employees.Interfaces;
+using CRMService.Application.Features.Employess.DTOs;
+using CRMService.Application.Features.Scheduling.DTOs;
 using CRMService.Domain.Entities;
-using CRMService.Application.Features.Auth.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,14 +15,17 @@ namespace CRMService.Application.Features.Auth.Commands
     public class SalonService : ISalonService
     {
         private readonly ISalonRepository _repository;
-        private readonly IUserRepository _userRepository; // додати
+        private readonly IUserRepository _userRepository;
+        private readonly IEmployeeRepository _employeeRepo; 
 
         public SalonService(
             ISalonRepository repository,
-            IUserRepository userRepository) // додати
+            IUserRepository userRepository, 
+            IEmployeeRepository employeeRepo)    
         {
             _repository = repository;
-            _userRepository = userRepository; // додати
+            _userRepository = userRepository; 
+            _employeeRepo = employeeRepo;
         }
 
         public async Task<Guid> CreateAsync(CreateSalonCommand command, Guid ownerId)
@@ -62,12 +68,53 @@ namespace CRMService.Application.Features.Auth.Commands
             return MapToSettingsDto(salon.Settings);
         }
 
-        public async Task UpdateSettingsAsync(Guid salonId, UpdateSalonSettingsCommand command, Guid ownerId)
+        public async Task UpdateSettingsAsync(
+            Guid salonId,
+            UpdateSalonSettingsCommand command,
+            Guid ownerId)
         {
             var salon = await GetSalonAndEnsureOwnership(salonId, ownerId);
-            salon.UpdateSettings(command.OpeningTime, command.ClosingTime, command.SlotDurationMinutes);
+
+            // Перевіряємо конфлікти тільки якщо години звужуються
+            var hoursNarrowed =
+                command.OpeningTime > salon.Settings.OpeningTime ||
+                command.ClosingTime < salon.Settings.ClosingTime;
+
+            if (hoursNarrowed)
+            {
+                var employees = await _employeeRepo.GetBySalonIdAsync(salonId);
+                var conflicts = new List<string>();
+
+                foreach (var employee in employees)
+                {
+                    // Schedules вже завантажені через GetBySalonIdAsync
+                    var conflictDays = employee.Schedules
+                        .Where(s =>
+                            s.IsWorking &&
+                            (s.StartTime < command.OpeningTime ||
+                             s.EndTime > command.ClosingTime))
+                        .Select(s => s.DayOfWeek.ToString())
+                        .ToList();
+
+                    if (conflictDays.Any())
+                        conflicts.Add(
+                            $"{employee.FullName}: {string.Join(", ", conflictDays)}");
+                }
+
+                if (conflicts.Any())
+                    throw new InvalidOperationException(
+                        $"Неможливо оновити години салону. Наступні майстри мають " +
+                        $"розклад за межами нових годин: {string.Join("; ", conflicts)}");
+            }
+
+            salon.UpdateSettings(
+                command.OpeningTime,
+                command.ClosingTime,
+                command.SlotDurationMinutes);
+
             await _repository.UpdateAsync(salon);
         }
+        
 
         public async Task AddRegularDayOffAsync(Guid salonId, DayOfWeek dayOfWeek, Guid ownerId)
         {

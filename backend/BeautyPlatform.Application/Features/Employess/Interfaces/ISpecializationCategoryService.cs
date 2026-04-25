@@ -14,5 +14,12 @@ namespace CRMService.Application.Features.Employess.Interfaces
         Task<List<CategoryDto>> GetAvailableAsync(Guid salonId);
         Task<Guid> CreateCustomAsync(CreateCategoryCommand command, Guid salonId, Guid ownerId);
         Task UpdateCustomAsync(Guid categoryId, UpdateCategoryCommand command, Guid salonId, Guid ownerId);
+
+        /// <summary>
+        /// Категорії що реально представлені в салоні —
+        /// є хоча б один активний майстер в цій категорії.
+        /// Використовується для відображення меню послуг клієнту.
+        /// </summary>
+        Task<List<CategoryDto>> GetActiveBySalonAsync(Guid salonId);
     }
 }

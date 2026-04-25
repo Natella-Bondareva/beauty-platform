@@ -3,6 +3,7 @@ using CRMService.Application.Features.Employees.Interfaces;
 using CRMService.Application.Features.Employess.Commands.Employee_Commands;
 using CRMService.Application.Features.Employess.DTOs;
 using CRMService.Application.Features.Employess.Interfaces;
+using CRMService.Application.Features.Scheduling.DTOs;
 using CRMService.Domain.Entities;
 
 namespace CRMService.Application.Features.Employees.Services
@@ -36,7 +37,6 @@ namespace CRMService.Application.Features.Employees.Services
             if (!command.CategoryIds.Any())
                 throw new ArgumentException("At least one category is required.");
 
-            // Валідуємо всі категорії
             foreach (var categoryId in command.CategoryIds)
             {
                 var category = await _categoryRepo.GetByIdWithDefaultServicesAsync(categoryId)
@@ -51,7 +51,6 @@ namespace CRMService.Application.Features.Employees.Services
                     throw new InvalidOperationException("Employee with this email already exists.");
             }
 
-            // Створюємо без CategoryId
             var employee = new Employee(
                 salonId,
                 command.FullName,
@@ -68,13 +67,13 @@ namespace CRMService.Application.Features.Employees.Services
 
             await _employeeRepo.AddAsync(employee);
 
-            // Додаємо всі категорії і дефолтні послуги для кожної
             foreach (var categoryId in command.CategoryIds)
             {
                 employee.AddCategory(categoryId);
 
                 var category = await _categoryRepo.GetByIdWithDefaultServicesAsync(categoryId)!;
-                await AssignDefaultServicesAsync(employee, category!, salonId);
+                // ✓ передаємо categoryId в AssignDefaultServicesAsync
+                await AssignDefaultServicesAsync(employee, category!, salonId, categoryId);
             }
 
             await _employeeRepo.UpdateAsync(employee);
@@ -105,12 +104,10 @@ namespace CRMService.Application.Features.Employees.Services
             }
 
             employee.Update(command.FullName, command.Phone, command.Email, command.AvatarUrl);
-
-            // Замінюємо категорії через репозиторій
             await _employeeRepo.ReplaceCategoriesAsync(employeeId, command.CategoryIds);
-
             await _employeeRepo.UpdateAsync(employee);
         }
+
         public async Task DeactivateAsync(Guid employeeId, Guid salonId, Guid ownerId)
         {
             var employee = await GetEmployeeAndEnsureAccess(employeeId, salonId, ownerId);
@@ -138,7 +135,14 @@ namespace CRMService.Application.Features.Employees.Services
 
         // ── Employee ↔ Service ─────────────────────────────────────
 
-        public async Task AssignServiceAsync(Guid employeeId, Guid serviceId, decimal? priceOverride, Guid salonId, Guid ownerId)
+        public async Task AssignServiceAsync(
+            Guid employeeId,
+            Guid serviceId,
+            decimal? priceOverride,
+            int? systemDurationOverride,
+            int? clientDurationOverride,
+            Guid salonId,
+            Guid ownerId)
         {
             var employee = await GetEmployeeAndEnsureAccess(employeeId, salonId, ownerId);
 
@@ -153,10 +157,14 @@ namespace CRMService.Application.Features.Employees.Services
             if (alreadyAssigned)
                 throw new InvalidOperationException("Service is already assigned to this employee.");
 
-            var employeeService = new Domain.Entities.EmployeeService(employeeId, serviceId, priceOverride);
+            // ✓ передаємо всі три override
+            var employeeService = new Domain.Entities.EmployeeService(
+                employeeId,
+                serviceId,
+                priceOverride,
+                systemDurationOverride,
+                clientDurationOverride);
 
-            // Додаємо через репозиторій (EF відстежить через navigation)
-            employee.Services.ToList(); // тригер lazy load якщо треба
             await _employeeRepo.AddServiceToEmployeeAsync(employeeId, employeeService);
         }
 
@@ -166,20 +174,29 @@ namespace CRMService.Application.Features.Employees.Services
             await _employeeRepo.RemoveServiceFromEmployeeAsync(employeeId, serviceId);
         }
 
-        public async Task UpdateServicePriceAsync(Guid employeeId, Guid serviceId, decimal? priceOverride, Guid salonId, Guid ownerId)
+        // ✓ Оновлений метод — приймає всі три override
+        public async Task UpdateServiceOverridesAsync(
+            Guid employeeId,
+            Guid serviceId,
+            decimal? priceOverride,
+            int? systemDurationOverride,
+            int? clientDurationOverride,
+            Guid salonId,
+            Guid ownerId)
         {
             await GetEmployeeAndEnsureAccess(employeeId, salonId, ownerId);
-            await _employeeRepo.UpdateEmployeeServicePriceAsync(employeeId, serviceId, priceOverride);
+            await _employeeRepo.UpdateEmployeeServiceOverridesAsync(
+                employeeId, serviceId,
+                priceOverride, systemDurationOverride, clientDurationOverride);
         }
 
         public async Task<Guid> RegisterSelfAsEmployeeAsync(
-    RegisterSelfAsEmployeeCommand command,
-    Guid salonId,
-    Guid ownerId)
+            RegisterSelfAsEmployeeCommand command,
+            Guid salonId,
+            Guid ownerId)
         {
             await EnsureSalonOwnership(salonId, ownerId);
 
-            // Перевіряємо що ще не зареєстрований як майстер
             var alreadyEmployee = await _employeeRepo.GetByUserIdAsync(ownerId, salonId);
             if (alreadyEmployee is not null)
                 throw new InvalidOperationException("You are already registered as an employee.");
@@ -187,11 +204,9 @@ namespace CRMService.Application.Features.Employees.Services
             if (!command.CategoryIds.Any())
                 throw new ArgumentException("At least one category is required.");
 
-            // Беремо дані з існуючого профілю
             var user = await _userRepo.GetByIdAsync(ownerId)
                 ?? throw new KeyNotFoundException("User not found.");
 
-            // Збираємо FullName з профілю
             var fullName = $"{user.FirstName} {user.LastName}".Trim();
 
             var employee = new Employee(
@@ -199,15 +214,12 @@ namespace CRMService.Application.Features.Employees.Services
                 fullName,
                 command.Phone,
                 command.HireDate ?? DateTime.UtcNow,
-                email: user.Email,   // email теж беремо з профілю
+                email: user.Email,
                 avatarUrl: null);
 
-            // Прив'язуємо існуючий акаунт — без нового пароля
             employee.AssignUser(ownerId);
-
             await _employeeRepo.AddAsync(employee);
 
-            // Додаємо категорії і дефолтні послуги
             foreach (var categoryId in command.CategoryIds)
             {
                 var category = await _categoryRepo.GetByIdWithDefaultServicesAsync(categoryId)
@@ -215,7 +227,7 @@ namespace CRMService.Application.Features.Employees.Services
                 category.EnsureSalonAccess(salonId);
 
                 employee.AddCategory(categoryId);
-                await AssignDefaultServicesAsync(employee, category, salonId);
+                await AssignDefaultServicesAsync(employee, category, salonId, categoryId);
             }
 
             await _employeeRepo.UpdateAsync(employee);
@@ -225,12 +237,70 @@ namespace CRMService.Application.Features.Employees.Services
         }
 
         // ── Schedule ───────────────────────────────────────────────
-
-        public async Task SetScheduleAsync(Guid employeeId, List<ScheduleItemCommand> schedule, Guid salonId, Guid ownerId)
+        public async Task<ScheduleConstraintsDto> GetScheduleConstraintsAsync(
+    Guid employeeId,
+    Guid salonId,
+    Guid ownerId)
         {
-            var employee = await GetEmployeeAndEnsureAccess(employeeId, salonId, ownerId);
+            var salon = await _salonRepo.GetByIdAsync(salonId)
+                ?? throw new KeyNotFoundException("Salon not found.");
+            salon.EnsureOwnership(ownerId);
 
-            // Видаляємо старий розклад і замінюємо новим
+            var employee = await _employeeRepo.GetByIdWithScheduleAsync(employeeId)
+                ?? throw new KeyNotFoundException("Employee not found.");
+            employee.EnsureBelongsToSalon(salonId);
+
+            return new ScheduleConstraintsDto
+            {
+                SalonOpeningTime = salon.Settings.OpeningTime,
+                SalonClosingTime = salon.Settings.ClosingTime,
+                SalonDaysOff = salon.Settings.RegularDaysOff
+                    .Select(d => d.DayOfWeek)
+                    .ToList(),
+                CurrentSchedule = employee.Schedules
+                    .OrderBy(s => s.DayOfWeek)
+                    .Select(s => new ScheduleDto
+                    {
+                        DayOfWeek = s.DayOfWeek,
+                        IsWorking = s.IsWorking,
+                        StartTime = s.StartTime,
+                        EndTime = s.EndTime
+                    }).ToList()
+            };
+        }
+
+        // Також додай в EmployeeService.SetScheduleAsync валідацію меж:
+        public async Task SetScheduleAsync(
+            Guid employeeId,
+            List<ScheduleItemCommand> schedule,
+            Guid salonId,
+            Guid ownerId)
+        {
+            await GetEmployeeAndEnsureAccess(employeeId, salonId, ownerId);
+
+            var salon = await _salonRepo.GetByIdAsync(salonId)
+                ?? throw new KeyNotFoundException("Salon not found.");
+
+            var salonOpening = salon.Settings.OpeningTime;
+            var salonClosing = salon.Settings.ClosingTime;
+
+            foreach (var day in schedule.Where(s => s.IsWorking))
+            {
+                if (day.StartTime < salonOpening)
+                    throw new InvalidOperationException(
+                        $"Час початку ({day.StartTime:hh\\:mm}) не може бути раніше " +
+                        $"відкриття салону ({salonOpening:hh\\:mm}).");
+
+                if (day.EndTime > salonClosing)
+                    throw new InvalidOperationException(
+                        $"Час завершення ({day.EndTime:hh\\:mm}) не може бути пізніше " +
+                        $"закриття салону ({salonClosing:hh\\:mm}).");
+
+                if (day.StartTime >= day.EndTime)
+                    throw new ArgumentException(
+                        $"Час початку має бути меншим за час завершення для {day.DayOfWeek}.");
+            }
+
             await _employeeRepo.ReplaceScheduleAsync(employeeId, schedule.Select(s =>
                 new MasterSchedule(employeeId, s.DayOfWeek, s.StartTime, s.EndTime, s.IsWorking)
             ).ToList());
@@ -238,16 +308,19 @@ namespace CRMService.Application.Features.Employees.Services
 
         // ── Private Helpers ────────────────────────────────────────
 
-        private async Task<Guid> CreateEmployeeUserAccount( CreateEmployeeUserCommand cmd, string fullName, Guid salonId)
+        private async Task<Guid> CreateEmployeeUserAccount(CreateEmployeeUserCommand cmd, string fullName, Guid salonId)
         {
             return await _userRepo.CreateEmployeeUserAsync(cmd.Email, fullName, cmd.Password, salonId);
         }
 
-        private async Task AssignDefaultServicesAsync(Employee employee, SpecializationCategory category, Guid salonId)
+        private async Task AssignDefaultServicesAsync(
+            Employee employee,
+            SpecializationCategory category,
+            Guid salonId,
+            Guid categoryId) // ✓ додано categoryId
         {
             foreach (var defaultSvc in category.DefaultServices)
             {
-                // Перевіряємо чи послуга з такою назвою вже є в салоні
                 var existingServices = await _serviceRepo.GetBySalonIdAsync(salonId);
                 var existing = existingServices.FirstOrDefault(s =>
                     s.Name.Equals(defaultSvc.Name, StringComparison.OrdinalIgnoreCase) && s.IsActive);
@@ -259,9 +332,10 @@ namespace CRMService.Application.Features.Employees.Services
                 }
                 else
                 {
-                    // Створюємо нову послугу на основі шаблону
+                    // ✓ передаємо categoryId при створенні послуги
                     serviceToAssign = new Service(
                         salonId,
+                        categoryId,
                         defaultSvc.Name,
                         defaultSvc.SystemDurationMinutes,
                         defaultSvc.ClientDurationMinutes,
@@ -322,11 +396,18 @@ namespace CRMService.Application.Features.Employees.Services
             {
                 ServiceId = s.ServiceId,
                 ServiceName = s.Service?.Name ?? string.Empty,
+                // ✓ CategoryName береться з навігаційної властивості
+                CategoryName = s.Service?.Category?.Name ?? string.Empty,
                 BasePrice = s.Service?.Price ?? 0,
+                BaseSystemDuration = s.Service?.SystemDurationMinutes ?? 0,
+                BaseClientDuration = s.Service?.ClientDurationMinutes ?? 0,
                 PriceOverride = s.PriceOverride,
-                EffectivePrice = s.PriceOverride ?? s.Service?.Price ?? 0,
-                SystemDurationMinutes = s.Service?.SystemDurationMinutes ?? 0,
-                ClientDurationMinutes = s.Service?.ClientDurationMinutes ?? 0,
+                SystemDurationOverride = s.SystemDurationOverride,
+                ClientDurationOverride = s.ClientDurationOverride,
+                // ✓ ефективні значення через методи entity
+                EffectivePrice = s.GetEffectivePrice(),
+                EffectiveSystemDuration = s.GetEffectiveSystemDuration(),
+                EffectiveClientDuration = s.GetEffectiveClientDuration(),
             }).ToList(),
             Schedule = e.Schedules.OrderBy(s => s.DayOfWeek).Select(s => new ScheduleDto
             {

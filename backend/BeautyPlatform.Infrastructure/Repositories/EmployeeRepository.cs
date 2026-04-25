@@ -30,6 +30,10 @@ namespace CRMService.Infrastructure.Repositories
                 .Include(e => e.Services)
                     .ThenInclude(es => es.Service)
                         .ThenInclude(s => s.Images)
+                // ✓ Include Category через Service для CategoryName
+                .Include(e => e.Services)
+                    .ThenInclude(es => es.Service)
+                        .ThenInclude(s => s.Category)
                 .Include(e => e.Schedules)
                 .FirstOrDefaultAsync(e => e.Id == id);
         }
@@ -46,9 +50,9 @@ namespace CRMService.Infrastructure.Repositories
         public async Task<List<Employee>> GetBySalonIdAsync(Guid salonId)
         {
             return await _context.Employees
-                .Include(e => e.Categories)
-                    .ThenInclude(ec => ec.Category)
+                .Include(e => e.Categories).ThenInclude(ec => ec.Category)
                 .Include(e => e.Services)
+                .Include(e => e.Schedules)  // ← обов'язково для перевірки конфліктів
                 .Where(e => e.SalonId == salonId)
                 .OrderBy(e => e.FullName)
                 .ToListAsync();
@@ -98,13 +102,19 @@ namespace CRMService.Infrastructure.Repositories
             await _context.SaveChangesAsync();
         }
 
-        public async Task UpdateEmployeeServicePriceAsync(Guid employeeId, Guid serviceId, decimal? priceOverride)
+        // ✓ Оновлений метод — замість UpdateEmployeeServicePriceAsync
+        public async Task UpdateEmployeeServiceOverridesAsync(
+            Guid employeeId,
+            Guid serviceId,
+            decimal? priceOverride,
+            int? systemDurationOverride,
+            int? clientDurationOverride)
         {
             var link = await _context.EmployeeServices
                 .FirstOrDefaultAsync(es => es.EmployeeId == employeeId && es.ServiceId == serviceId)
                 ?? throw new KeyNotFoundException("Service assignment not found.");
 
-            link.UpdatePriceOverride(priceOverride);
+            link.UpdateOverrides(priceOverride, systemDurationOverride, clientDurationOverride);
             await _context.SaveChangesAsync();
         }
 
@@ -127,9 +137,7 @@ namespace CRMService.Infrastructure.Repositories
 
             _context.EmployeeCategories.RemoveRange(existing);
 
-            var newCategories = categoryIds.Select(cId =>
-                new EmployeeCategory(employeeId, cId));
-
+            var newCategories = categoryIds.Select(cId => new EmployeeCategory(employeeId, cId));
             await _context.EmployeeCategories.AddRangeAsync(newCategories);
             await _context.SaveChangesAsync();
         }
@@ -138,6 +146,19 @@ namespace CRMService.Infrastructure.Repositories
         {
             return await _context.Employees
                 .FirstOrDefaultAsync(e => e.UserId == userId && e.SalonId == salonId);
+        }
+
+        public async Task<List<Employee>> GetActiveByServiceIdAsync(Guid serviceId, Guid salonId)
+        {
+            return await _context.Employees
+                .Include(e => e.Services)
+                    .ThenInclude(es => es.Service)
+                .Include(e => e.Schedules)
+                .Where(e =>
+                    e.SalonId == salonId &&
+                    e.IsActive &&
+                    e.Services.Any(s => s.ServiceId == serviceId))
+                .ToListAsync();
         }
     }
 }

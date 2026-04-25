@@ -47,5 +47,14 @@ namespace CRMService.API.Controllers
             await _categoryService.UpdateCustomAsync(id, command, salonId, ownerId);
             return NoContent();
         }
+
+        // GET /api/salons/{salonId}/categories/active
+        [HttpGet("active")]
+        [AllowAnonymous] // клієнт теж може дивитись
+        public async Task<IActionResult> GetActive(Guid salonId)
+        {
+            var categories = await _categoryService.GetActiveBySalonAsync(salonId);
+            return Ok(categories);
+        }
     }
 }

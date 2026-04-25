@@ -19,9 +19,15 @@ namespace CRMService.Application.Features.Employees.Interfaces
         Task DeleteAsync(Employee employee);
         Task AddServiceToEmployeeAsync(Guid employeeId, EmployeeService employeeService);
         Task RemoveServiceFromEmployeeAsync(Guid employeeId, Guid serviceId);
-        Task UpdateEmployeeServicePriceAsync(Guid employeeId, Guid serviceId, decimal? priceOverride);
         Task ReplaceScheduleAsync(Guid employeeId, List<MasterSchedule> schedule);
         Task ReplaceCategoriesAsync(Guid employeeId, List<Guid> categoryIds);
         Task<Employee?> GetByUserIdAsync(Guid ownerId, Guid salonId);
+        Task<List<Employee>> GetActiveByServiceIdAsync(Guid serviceId, Guid salonId);
+        Task UpdateEmployeeServiceOverridesAsync(
+            Guid employeeId,
+            Guid serviceId,
+            decimal? priceOverride,
+            int? systemDurationOverride,
+            int? clientDurationOverride);
     }
 }

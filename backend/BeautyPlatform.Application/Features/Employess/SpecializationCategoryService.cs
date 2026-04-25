@@ -63,6 +63,13 @@ namespace CRMService.Application.Features.Employees.Services
             salon.EnsureOwnership(ownerId);
         }
 
+        public async Task<List<CategoryDto>> GetActiveBySalonAsync(Guid salonId)
+        {
+            // Всі активні категорії салону через майстрів
+            var categories = await _categoryRepo.GetActiveBySalonAsync(salonId);
+            return categories.Select(MapToDto).ToList();
+        }
+
         private static CategoryDto MapToDto(SpecializationCategory c) => new()
         {
             Id = c.Id,

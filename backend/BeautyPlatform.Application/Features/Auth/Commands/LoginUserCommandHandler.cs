@@ -43,7 +43,9 @@ namespace CRMService.Application.Features.Auth.Commands
             {
                 Token = token,
                 Email = user.Email,
-                Role = user.Role.Name
+                Role = user.Role.Name,
+                SalonId = user.SalonId,  
+                UserId = user.Id
             };
         }
     }

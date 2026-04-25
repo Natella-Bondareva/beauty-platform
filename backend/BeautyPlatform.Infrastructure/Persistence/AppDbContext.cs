@@ -21,6 +21,9 @@ namespace CRMService.Infrastructure.Persistence
         public DbSet<EmployeeService> EmployeeServices => Set<EmployeeService>();
         public DbSet<MasterSchedule> MasterSchedules => Set<MasterSchedule>();
         public DbSet<EmployeeCategory> EmployeeCategories => Set<EmployeeCategory>();
+        public DbSet<EmployeeBreak> EmployeeBreaks => Set<EmployeeBreak>();
+        public DbSet<Client> Clients => Set<Client>();
+        public DbSet<Booking> Bookings => Set<Booking>();
 
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }

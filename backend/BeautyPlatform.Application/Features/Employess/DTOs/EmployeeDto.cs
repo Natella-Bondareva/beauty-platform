@@ -44,11 +44,22 @@ namespace CRMService.Application.Features.Employess.DTOs
     {
         public Guid ServiceId { get; set; }
         public string ServiceName { get; set; } = default!;
+        public string CategoryName { get; set; } = default!;
+
+        // Базові значення послуги
         public decimal BasePrice { get; set; }
+        public int BaseSystemDuration { get; set; }
+        public int BaseClientDuration { get; set; }
+
+        // Override цього майстра (null = використовує базові)
         public decimal? PriceOverride { get; set; }
+        public int? SystemDurationOverride { get; set; }
+        public int? ClientDurationOverride { get; set; }
+
+        // Ефективні значення (override ?? base)
         public decimal EffectivePrice { get; set; }
-        public int SystemDurationMinutes { get; set; }
-        public int ClientDurationMinutes { get; set; }
+        public int EffectiveSystemDuration { get; set; }
+        public int EffectiveClientDuration { get; set; }
     }
 
     public class ScheduleDto

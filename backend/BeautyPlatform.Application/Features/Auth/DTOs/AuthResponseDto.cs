@@ -13,5 +13,7 @@ namespace CRMService.Application.Features.Auth.DTOs
         public string Role { get; set; } = null!;
         // Фронтенд знає на який крок онбордингу відправити юзера
         public bool HasSalon { get; set; }
+        public Guid? SalonId { get; set; }
+        public Guid UserId { get; set; }
     }
 }

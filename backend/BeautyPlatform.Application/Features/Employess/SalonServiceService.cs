@@ -1,4 +1,5 @@
-﻿using CRMService.Application.Features.Auth.Interfaces;
+﻿using CRMService.Application.Features.Auth.Commands;
+using CRMService.Application.Features.Auth.Interfaces;
 using CRMService.Application.Features.Employees.Interfaces;
 using CRMService.Application.Features.Employess.Commands.Service_Commands;
 using CRMService.Application.Features.Employess.DTOs;
@@ -26,14 +27,15 @@ namespace CRMService.Application.Features.Employees.Services
         {
             await EnsureSalonOwnership(salonId, ownerId);
 
+            // ✓ CategoryId (Guid) замість string Category
             var service = new Domain.Entities.Service(
                 salonId,
+                command.CategoryId,
                 command.Name,
                 command.SystemDurationMinutes,
                 command.ClientDurationMinutes,
                 command.Price,
-                command.Description,
-                command.Category);
+                command.Description);
 
             await _serviceRepo.AddAsync(service);
             return service.Id;
@@ -43,13 +45,14 @@ namespace CRMService.Application.Features.Employees.Services
         {
             var service = await GetServiceAndEnsureAccess(serviceId, salonId, ownerId);
 
+            // ✓ Update тепер приймає CategoryId замість string
             service.Update(
+                command.CategoryId,
                 command.Name,
                 command.SystemDurationMinutes,
                 command.ClientDurationMinutes,
                 command.Price,
-                command.Description,
-                command.Category);
+                command.Description);
 
             await _serviceRepo.UpdateAsync(service);
         }
@@ -81,7 +84,6 @@ namespace CRMService.Application.Features.Employees.Services
         {
             var service = await GetServiceAndEnsureAccess(serviceId, salonId, ownerId);
 
-            // Завантажуємо в Azure Blob / S3
             var imageUrl = await _imageStorage.UploadAsync(
                 command.FileStream,
                 command.FileName,
@@ -107,7 +109,6 @@ namespace CRMService.Application.Features.Employees.Services
             var image = service.Images.FirstOrDefault(x => x.Id == imageId)
                 ?? throw new KeyNotFoundException("Image not found.");
 
-            // Видаляємо з хмари
             await _imageStorage.DeleteAsync(image.ImageUrl);
 
             service.RemoveImage(imageId);
@@ -123,7 +124,8 @@ namespace CRMService.Application.Features.Employees.Services
             salon.EnsureOwnership(ownerId);
         }
 
-        private async Task<Domain.Entities.Service> GetServiceAndEnsureAccess(Guid serviceId, Guid salonId, Guid ownerId)
+        private async Task<Domain.Entities.Service> GetServiceAndEnsureAccess(
+            Guid serviceId, Guid salonId, Guid ownerId)
         {
             await EnsureSalonOwnership(salonId, ownerId);
             var service = await _serviceRepo.GetByIdWithImagesAsync(serviceId)
@@ -136,12 +138,13 @@ namespace CRMService.Application.Features.Employees.Services
         {
             Id = s.Id,
             SalonId = s.SalonId,
+            CategoryId = s.CategoryId,
+            CategoryName = s.Category?.Name ?? string.Empty,
             Name = s.Name,
             Description = s.Description,
             SystemDurationMinutes = s.SystemDurationMinutes,
             ClientDurationMinutes = s.ClientDurationMinutes,
             Price = s.Price,
-            Category = s.Category,
             IsActive = s.IsActive,
             Images = s.Images.OrderBy(i => i.SortOrder).Select(i => new ServiceImageDto
             {
@@ -155,18 +158,24 @@ namespace CRMService.Application.Features.Employees.Services
                 EmployeeId = es.EmployeeId,
                 FullName = es.Employee?.FullName ?? string.Empty,
                 AvatarUrl = es.Employee?.AvatarUrl,
-                PriceOverride = es.PriceOverride
+                EffectivePrice = es.GetEffectivePrice(),
+                EffectiveSystemDuration = es.GetEffectiveSystemDuration(),
+                EffectiveClientDuration = es.GetEffectiveClientDuration(),
+                PriceOverride = es.PriceOverride,
+                SystemDurationOverride = es.SystemDurationOverride,
+                ClientDurationOverride = es.ClientDurationOverride,
             }).ToList()
         };
 
         private static ServiceListItemDto MapToListItemDto(Domain.Entities.Service s) => new()
         {
             Id = s.Id,
+            CategoryId = s.CategoryId,
+            CategoryName = s.Category?.Name ?? string.Empty,
             Name = s.Name,
             SystemDurationMinutes = s.SystemDurationMinutes,
             ClientDurationMinutes = s.ClientDurationMinutes,
             Price = s.Price,
-            Category = s.Category,
             IsActive = s.IsActive,
             CoverImageUrl = s.Images.FirstOrDefault(i => i.IsCover)?.ImageUrl,
             EmployeesCount = s.EmployeeServices.Count

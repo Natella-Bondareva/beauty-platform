@@ -9,11 +9,15 @@ public class EmployeeServiceConfiguration : IEntityTypeConfiguration<EmployeeSer
     public void Configure(EntityTypeBuilder<EmployeeService> builder)
     {
         builder.ToTable("EmployeeServices");
-
-        // Composite PK
         builder.HasKey(x => new { x.EmployeeId, x.ServiceId });
 
-        builder.Property(x => x.PriceOverride).HasColumnType("decimal(10,2)").IsRequired(false);
+        builder.Property(x => x.PriceOverride)
+            .HasColumnType("decimal(10,2)").IsRequired(false);
+
+        // ← нові поля для override тривалості
+        builder.Property(x => x.SystemDurationOverride).IsRequired(false);
+        builder.Property(x => x.ClientDurationOverride).IsRequired(false);
+
         builder.Property(x => x.AssignedAt).IsRequired();
 
         builder.HasOne(x => x.Employee)
