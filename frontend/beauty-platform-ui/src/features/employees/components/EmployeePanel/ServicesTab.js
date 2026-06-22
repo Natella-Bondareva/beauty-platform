@@ -6,12 +6,30 @@ import Icon from '../../../../components/dashboard/Icon';
 
 const fmt = (m) => `${m} хв`;
 
+const EMPTY_EDIT = { id: null, price: '', systemDur: '', clientDur: '' };
+
+function OverrideField({ label, hint, value, onChange, placeholder }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+      <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>{label}</span>
+      <input
+        style={{ ...inputStyle, padding: '5px 8px', width: '100%', boxSizing: 'border-box' }}
+        type="number"
+        min={0}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+      />
+      <span style={{ fontSize: 10, color: '#94a3b8' }}>{hint}</span>
+    </div>
+  );
+}
+
 export default function ServicesTab({ empId, allSalonServices }) {
   const { data: detail, isLoading } = useEmployeeDetail(empId);
   const { assignMutation, removeMutation, updatePriceMutation } = useEmployeeServices(empId);
 
-  const [priceEditId, setPriceEditId] = useState(null);
-  const [priceValue, setPriceValue] = useState('');
+  const [edit, setEdit] = useState(EMPTY_EDIT);
   const [showAssign, setShowAssign] = useState(false);
 
   const assignedServices = detail?.services ?? [];
@@ -27,10 +45,32 @@ export default function ServicesTab({ empId, allSalonServices }) {
   const opLoading =
     assignMutation.isPending || removeMutation.isPending || updatePriceMutation.isPending;
 
-  const handlePriceSave = async () => {
-    const val = priceValue === '' ? null : parseFloat(priceValue);
-    await updatePriceMutation.mutateAsync({ serviceId: priceEditId, priceOverride: val });
-    setPriceEditId(null);
+  const openEdit = (svc) => setEdit({
+    id: svc.serviceId,
+    price: svc.priceOverride != null ? String(svc.priceOverride) : '',
+    systemDur: svc.systemDurationOverride != null ? String(svc.systemDurationOverride) : '',
+    clientDur: svc.clientDurationOverride != null ? String(svc.clientDurationOverride) : '',
+  });
+
+  const handleSave = async () => {
+    const toNum = (v) => v === '' ? null : parseInt(v, 10);
+    const toPrice = (v) => v === '' ? null : parseFloat(v);
+
+    const systemDur = toNum(edit.systemDur);
+    const clientDur = toNum(edit.clientDur);
+
+    if (systemDur !== null && clientDur !== null && clientDur > systemDur) {
+      alert('Час для клієнта не може перевищувати системний час.');
+      return;
+    }
+
+    await updatePriceMutation.mutateAsync({
+      serviceId: edit.id,
+      priceOverride: toPrice(edit.price),
+      systemDurationOverride: systemDur,
+      clientDurationOverride: clientDur,
+    });
+    setEdit(EMPTY_EDIT);
   };
 
   if (isLoading) return (
@@ -45,7 +85,10 @@ export default function ServicesTab({ empId, allSalonServices }) {
         <span style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           Призначені послуги ({assignedServices.length})
         </span>
-        <button onClick={() => setShowAssign((v) => !v)} style={{ fontSize: 12, fontWeight: 600, color: accent, background: '#FFF5F0', border: `1px solid ${peach}`, borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>
+        <button
+          onClick={() => setShowAssign((v) => !v)}
+          style={{ fontSize: 12, fontWeight: 600, color: accent, background: '#FFF5F0', border: `1px solid ${peach}`, borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}
+        >
           {showAssign ? 'Сховати' : '+ Призначити'}
         </button>
       </div>
@@ -54,7 +97,10 @@ export default function ServicesTab({ empId, allSalonServices }) {
         <div style={{ textAlign: 'center', padding: '24px 0', color: '#94a3b8' }}>
           <Icon name="scissors" size={32} color="#FFD1B3" />
           <p style={{ margin: '10px 0 4px', fontSize: 14, color: '#64748b' }}>Послуг ще не призначено</p>
-          <button onClick={() => setShowAssign(true)} style={{ marginTop: 8, padding: '7px 18px', borderRadius: 8, border: 'none', background: 'var(--gradient-primary)', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+          <button
+            onClick={() => setShowAssign(true)}
+            style={{ marginTop: 8, padding: '7px 18px', borderRadius: 8, border: 'none', background: 'var(--gradient-primary)', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+          >
             Призначити послугу
           </button>
         </div>
@@ -67,41 +113,99 @@ export default function ServicesTab({ empId, allSalonServices }) {
           </div>
           {svcs.map((svc) => (
             <div key={svc.serviceId}>
-              {priceEditId === svc.serviceId ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#FFF5F0', border: `1px solid ${peach}`, borderRadius: 10, marginBottom: 6 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: '#1E293B', marginBottom: 6 }}>{svc.serviceName}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 11, color: '#64748b' }}>Індивідуальна ціна (грн)</span>
-                      <input style={{ ...inputStyle, width: 110, padding: '5px 8px' }} type="number" min={0} value={priceValue} onChange={(e) => setPriceValue(e.target.value)} placeholder="стандартна" />
-                    </div>
-                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3 }}>Базова: {svc.basePrice} грн · Якщо порожньо — застосується базова</div>
+              {edit.id === svc.serviceId ? (
+                /* ── Edit panel ── */
+                <div style={{ padding: '12px 14px', background: '#FFF5F0', border: `1px solid ${peach}`, borderRadius: 10, marginBottom: 6 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: '#1E293B', marginBottom: 10 }}>
+                    {svc.serviceName}
+                    <span style={{ fontSize: 11, fontWeight: 400, color: '#94a3b8', marginLeft: 8 }}>
+                      — індивідуальні значення
+                    </span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <button onClick={handlePriceSave} disabled={opLoading} style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: accent, color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>{opLoading ? '...' : 'ОК'}</button>
-                    <button onClick={() => setPriceEditId(null)} style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${peach}`, background: 'transparent', cursor: 'pointer', fontSize: 12 }}>✕</button>
+
+                  <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+                    <OverrideField
+                      label="Ціна (грн)"
+                      hint={`База: ${svc.basePrice} грн`}
+                      value={edit.price}
+                      onChange={(v) => setEdit((s) => ({ ...s, price: v }))}
+                      placeholder="стандартна"
+                    />
+                    <OverrideField
+                      label="Системний час (хв)"
+                      hint={`База: ${svc.baseSystemDuration} хв · блокує слот`}
+                      value={edit.systemDur}
+                      onChange={(v) => setEdit((s) => ({ ...s, systemDur: v }))}
+                      placeholder="стандартний"
+                    />
+                    <OverrideField
+                      label="Час для клієнта (хв)"
+                      hint={`База: ${svc.baseClientDuration} хв · видно клієнту`}
+                      value={edit.clientDur}
+                      onChange={(v) => setEdit((s) => ({ ...s, clientDur: v }))}
+                      placeholder="стандартний"
+                    />
+                  </div>
+
+                  <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 10 }}>
+                    Залиште поле порожнім — застосується базове значення послуги
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={handleSave}
+                      disabled={opLoading}
+                      style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: accent, color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                    >
+                      {opLoading ? '...' : 'Зберегти'}
+                    </button>
+                    <button
+                      onClick={() => setEdit(EMPTY_EDIT)}
+                      style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${peach}`, background: 'transparent', cursor: 'pointer', fontSize: 12 }}
+                    >
+                      Скасувати
+                    </button>
                   </div>
                 </div>
               ) : (
+                /* ── View row ── */
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#fff', border: `1px solid ${peach}`, borderRadius: 10, marginBottom: 6 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 13, color: '#1E293B' }}>{svc.serviceName}</div>
                     <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                      <span>⏱ {fmt(svc.effectiveSystemDuration)}</span>
-                      <span>👤 {fmt(svc.effectiveClientDuration)}</span>
+                      <span title="Системний час (блокує слот)">
+                        ⏱ {fmt(svc.effectiveSystemDuration)}
+                        {svc.systemDurationOverride != null && <span style={{ color: '#a78bfa' }}> *</span>}
+                      </span>
+                      <span title="Час для клієнта">
+                        👤 {fmt(svc.effectiveClientDuration)}
+                        {svc.clientDurationOverride != null && <span style={{ color: '#a78bfa' }}> *</span>}
+                      </span>
                       <span style={{ color: svc.priceOverride != null ? '#a78bfa' : accent, fontWeight: 600 }}>
-                        {svc.effectivePrice} грн{svc.priceOverride != null && <span title="Індивідуальна ціна"> *</span>}
+                        {svc.effectivePrice} грн
+                        {svc.priceOverride != null && <span title="Індивідуальна ціна"> *</span>}
                       </span>
                     </div>
                   </div>
-                  <button onClick={() => { setPriceEditId(svc.serviceId); setPriceValue(svc.priceOverride != null ? String(svc.priceOverride) : ''); }} title="Встановити індивідуальну ціну" style={{ width: 28, height: 28, border: `1px solid ${peach}`, borderRadius: 6, background: 'transparent', cursor: 'pointer', fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                  <button
+                    onClick={() => openEdit(svc)}
+                    title="Редагувати ціну та час"
+                    style={{ width: 28, height: 28, border: `1px solid ${peach}`, borderRadius: 6, background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                     onMouseEnter={(e) => { e.currentTarget.style.background = '#FFF5F0'; e.currentTarget.style.color = accent; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; }}
-                  >₴</button>
-                  <button onClick={() => removeMutation.mutate(svc.serviceId)} disabled={opLoading} title="Прибрати послугу" style={{ width: 28, height: 28, border: '1px solid #fca5a5', borderRadius: 6, background: 'transparent', cursor: 'pointer', fontSize: 12, color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => removeMutation.mutate(svc.serviceId)}
+                    disabled={opLoading}
+                    title="Прибрати послугу"
+                    style={{ width: 28, height: 28, border: '1px solid #fca5a5', borderRadius: 6, background: 'transparent', cursor: 'pointer', fontSize: 12, color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = '#fef2f2')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                  >✕</button>
+                  >
+                    ✕
+                  </button>
                 </div>
               )}
             </div>
@@ -115,21 +219,35 @@ export default function ServicesTab({ empId, allSalonServices }) {
             Послуги салону · не призначені ({unassigned.length})
           </div>
           {unassigned.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center', padding: '16px 0' }}>Всі послуги салону вже призначені цьому майстру</p>
+            <p style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center', padding: '16px 0' }}>
+              Всі послуги салону вже призначені цьому майстру
+            </p>
           ) : (
             unassigned.map((svc) => (
-              <div key={svc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', background: '#fff', border: `1.5px dashed ${peach}`, borderRadius: 10, marginBottom: 6 }}>
+              <div
+                key={svc.id}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', background: '#fff', border: `1.5px dashed ${peach}`, borderRadius: 10, marginBottom: 6 }}
+              >
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>{svc.name}</div>
                   <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {svc.category && <span style={{ padding: '1px 6px', borderRadius: 6, background: '#f1f5f9', color: '#64748b' }}>{svc.category}</span>}
+                    {svc.category && (
+                      <span style={{ padding: '1px 6px', borderRadius: 6, background: '#f1f5f9', color: '#64748b' }}>
+                        {svc.category}
+                      </span>
+                    )}
                     <span>{svc.clientDurationMinutes} хв · {svc.price} грн</span>
                   </div>
                 </div>
-                <button onClick={() => assignMutation.mutate({ serviceId: svc.id })} disabled={opLoading} style={{ padding: '5px 12px', borderRadius: 7, border: `1px solid ${peach}`, background: '#FFF5F0', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: accent, flexShrink: 0, marginLeft: 8 }}
+                <button
+                  onClick={() => assignMutation.mutate({ serviceId: svc.id })}
+                  disabled={opLoading}
+                  style={{ padding: '5px 12px', borderRadius: 7, border: `1px solid ${peach}`, background: '#FFF5F0', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: accent, flexShrink: 0, marginLeft: 8 }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = accent; e.currentTarget.style.color = '#fff'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = '#FFF5F0'; e.currentTarget.style.color = accent; }}
-                >+ Призначити</button>
+                >
+                  + Призначити
+                </button>
               </div>
             ))
           )}

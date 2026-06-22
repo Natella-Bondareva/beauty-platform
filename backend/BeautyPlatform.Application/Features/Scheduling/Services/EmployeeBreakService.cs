@@ -104,6 +104,18 @@ namespace CRMService.Application.Features.Scheduling.Services
             return breaks.Select(MapToDto).ToList();
         }
 
+        public async Task<List<EmployeeBreakDto>> GetByEmployeeAndDateRangeAsync(
+            Guid employeeId,
+            DateOnly dateFrom,
+            DateOnly dateTo,
+            Guid salonId,
+            Guid ownerId)
+        {
+            await EnsureAccess(employeeId, salonId, ownerId);
+            var breaks = await _breakRepo.GetByEmployeeAndDateRangeAsync(employeeId, dateFrom, dateTo);
+            return breaks.Select(MapToDto).ToList();
+        }
+
         // ── Helpers ────────────────────────────────────────────────
 
         private async Task EnsureAccess(Guid employeeId, Guid salonId, Guid ownerId)

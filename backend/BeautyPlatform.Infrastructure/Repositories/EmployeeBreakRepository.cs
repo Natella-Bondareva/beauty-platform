@@ -24,6 +24,17 @@ namespace CRMService.Infrastructure.Repositories
                 .OrderBy(b => b.StartTime)
                 .ToListAsync();
 
+        // Один запит замість N (по одному на кожного майстра).
+        public async Task<List<EmployeeBreak>> GetByEmployeesAndDateAsync(
+            IReadOnlyList<Guid> employeeIds, DateOnly date)
+        {
+            if (employeeIds.Count == 0) return [];
+            return await _context.EmployeeBreaks
+                .Where(b => employeeIds.Contains(b.EmployeeId) && b.Date == date)
+                .OrderBy(b => b.StartTime)
+                .ToListAsync();
+        }
+
         public async Task<List<EmployeeBreak>> GetByEmployeeAndDateRangeAsync(
             Guid employeeId, DateOnly from, DateOnly to)
             => await _context.EmployeeBreaks

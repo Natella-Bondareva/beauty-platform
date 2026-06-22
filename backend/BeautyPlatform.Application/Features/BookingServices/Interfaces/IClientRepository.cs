@@ -11,6 +11,7 @@ namespace CRMService.Application.Features.BookingServices.Interfaces
     {
         Task<Client?> GetByPhoneAndSalonAsync(string phone, Guid salonId);
         Task<Client?> GetByIdAsync(Guid id);
+        Task<List<Client>> SearchByPhoneAsync(Guid salonId, string phone, int limit = 5);
         Task AddAsync(Client client);
         Task UpdateAsync(Client client);
     }

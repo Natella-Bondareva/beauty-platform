@@ -3,10 +3,10 @@ import React from 'react';
 export default function SalonSettingsStep({ settings, handleSettingsChange, adjustTime, adjustDuration }) {
   return (
     <div>
-      <h2 className="card-title">Salon Settings</h2>
-      <p className="card-subtitle">Configure your salon's working hours and preferences</p>
+      <h2 className="card-title">Налаштування салону</h2>
+      <p className="card-subtitle">Налаштуйте робочий час та параметри салону</p>
       <div className="form-group">
-        <label className="form-label" htmlFor="openingTime">Opening Time</label>
+        <label className="form-label" htmlFor="openingTime">Час відкриття</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button type="button" className="btn btn-secondary" onClick={() => adjustTime('openingTime', -30)}>-</button>
           <input
@@ -23,7 +23,7 @@ export default function SalonSettingsStep({ settings, handleSettingsChange, adju
         </div>
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="closingTime">Closing Time</label>
+        <label className="form-label" htmlFor="closingTime">Час закриття</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button type="button" className="btn btn-secondary" onClick={() => adjustTime('closingTime', -30)}>-</button>
           <input
@@ -40,7 +40,7 @@ export default function SalonSettingsStep({ settings, handleSettingsChange, adju
         </div>
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="defaultSlotDurationMinutes">Default Slot Duration (minutes)</label>
+        <label className="form-label" htmlFor="defaultSlotDurationMinutes">Тривалість слоту (хвилини)</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button type="button" className="btn btn-secondary" onClick={() => adjustDuration(-15)}>-</button>
           <input
@@ -59,7 +59,7 @@ export default function SalonSettingsStep({ settings, handleSettingsChange, adju
         </div>
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="timezone">Timezone</label>
+        <label className="form-label" htmlFor="timezone">Часовий пояс</label>
         <input
           type="text"
           id="timezone"

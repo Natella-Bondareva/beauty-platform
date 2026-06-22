@@ -10,10 +10,14 @@ namespace CRMService.API.Controllers
     public class BookingController : ApiControllerBase
     {
         private readonly IBookingService _bookingService;
+        private readonly IBookingFieldAnswerService _answerService;
 
-        public BookingController(IBookingService bookingService)
+        public BookingController(
+            IBookingService bookingService,
+            IBookingFieldAnswerService answerService)
         {
             _bookingService = bookingService;
+            _answerService = answerService;
         }
 
         /// <summary>
@@ -48,6 +52,36 @@ namespace CRMService.API.Controllers
         }
 
         /// <summary>
+        /// Клієнт надсилає відповіді на кастомні поля бронювання.
+        /// Можна викликати для Pending або Confirmed статусів (повторний виклик перезаписує).
+        /// POST /api/bookings/{bookingId}/answers
+        /// </summary>
+        [HttpPost("api/bookings/{bookingId}/answers")]
+        [AllowAnonymous]
+        public async Task<IActionResult> SubmitAnswers(
+            Guid bookingId,
+            [FromBody] SubmitBookingAnswersCommand command)
+        {
+            await _answerService.SubmitAnswersAsync(bookingId, command);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Адмін створює запис вручну — одразу Confirmed, без SMS.
+        /// POST /api/salons/{salonId}/bookings/admin
+        /// </summary>
+        [HttpPost("api/salons/{salonId}/bookings/admin")]
+        [Authorize]
+        public async Task<IActionResult> CreateByAdmin(
+            Guid salonId,
+            [FromBody] CreateAdminBookingCommand command)
+        {
+            var ownerId = GetUserId();
+            var result = await _bookingService.CreateByAdminAsync(command, salonId, ownerId);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Список бронювань салону (для адміна).
         /// GET /api/salons/{salonId}/bookings
         /// </summary>
@@ -56,6 +90,8 @@ namespace CRMService.API.Controllers
         public async Task<IActionResult> GetBySalon(
             Guid salonId,
             [FromQuery] DateOnly? date,
+            [FromQuery] DateOnly? dateFrom,
+            [FromQuery] DateOnly? dateTo,
             [FromQuery] Guid? employeeId,
             [FromQuery] string? status)
         {
@@ -69,6 +105,8 @@ namespace CRMService.API.Controllers
             var filter = new BookingFilterDto
             {
                 Date = date,
+                DateFrom = dateFrom,
+                DateTo = dateTo,
                 EmployeeId = employeeId,
                 Status = parsedStatus
             };
@@ -103,6 +141,25 @@ namespace CRMService.API.Controllers
         }
 
         /// <summary>
+        /// Записи майстра (власний кабінет).
+        /// GET /api/salons/{salonId}/bookings/my?date=...
+        /// GET /api/salons/{salonId}/bookings/my?dateFrom=...&amp;dateTo=...
+        /// </summary>
+        [HttpGet("api/salons/{salonId}/bookings/my")]
+        [Authorize]
+        public async Task<IActionResult> GetMyBookings(
+            Guid salonId,
+            [FromQuery] DateOnly? date,
+            [FromQuery] DateOnly? dateFrom,
+            [FromQuery] DateOnly? dateTo)
+        {
+            var userId = GetUserId();
+            var result = await _bookingService.GetMyBookingsAsync(
+                salonId, userId, date, dateFrom, dateTo);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Завершення бронювання майстром.
         /// POST /api/bookings/{bookingId}/complete
         /// </summary>
@@ -110,8 +167,49 @@ namespace CRMService.API.Controllers
         [Authorize]
         public async Task<IActionResult> Complete(Guid bookingId)
         {
-            var employeeId = GetUserId();
-            await _bookingService.CompleteAsync(bookingId, employeeId);
+            var userId = GetUserId();
+            await _bookingService.CompleteByEmployeeAsync(bookingId, userId);
+            return NoContent();
+        }
+    
+
+        /// <summary>
+        /// Клієнт запитує SMS-код для перегляду своєї історії.
+        /// POST /api/salons/{salonId}/bookings/request-client-code
+        /// </summary>
+        [HttpPost("api/salons/{salonId}/bookings/request-client-code")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RequestClientCode(
+            Guid salonId, [FromBody] ClientCodeRequest request)
+        {
+            await _bookingService.RequestClientCodeAsync(request.Phone);
+            return Ok(new { message = "Код надіслано на ваш номер." });
+        }
+
+        /// <summary>
+        /// Клієнт верифікує номер і отримує свою історію записів.
+        /// POST /api/salons/{salonId}/bookings/client-history
+        /// </summary>
+        [HttpPost("api/salons/{salonId}/bookings/client-history")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetClientHistory(
+            Guid salonId, [FromBody] ClientHistoryRequest request)
+        {
+            var history = await _bookingService.GetClientHistoryAsync(
+                salonId, request.Phone, request.Code);
+            return Ok(history);
+        }
+
+        /// <summary>
+        /// Клієнт скасовує власний запис через SMS-верифікацію.
+        /// POST /api/bookings/{bookingId}/client-cancel
+        /// </summary>
+        [HttpPost("api/bookings/{bookingId}/client-cancel")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ClientCancel(
+            Guid bookingId, [FromBody] ClientCancelRequest request)
+        {
+            await _bookingService.CancelByClientAsync(bookingId, request.Phone, request.Code);
             return NoContent();
         }
     }
@@ -119,4 +217,7 @@ namespace CRMService.API.Controllers
     // ── Request моделі ─────────────────────────────────────────────
     public record VerifyCodeRequest(string Code);
     public record CancelBookingRequest(string Reason);
+    public record ClientCodeRequest(string Phone);
+    public record ClientHistoryRequest(string Phone, string Code);
+    public record ClientCancelRequest(string Phone, string Code);
 }

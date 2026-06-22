@@ -14,6 +14,7 @@
         public string? AvatarUrl { get; private set; }
         public DateTime HireDate { get; private set; }
         public bool IsActive { get; private set; } = true;
+        public bool IsArchived { get; private set; } = false;
         public DateTime CreatedAt { get; private set; }
 
         // Navigation
@@ -91,6 +92,8 @@
 
         public void Deactivate() => IsActive = false;
         public void Activate() => IsActive = true;
+        public void Archive() { IsActive = false; IsArchived = true; }
+        public void Unarchive() => IsArchived = false;
 
         public void EnsureBelongsToSalon(Guid salonId)
         {

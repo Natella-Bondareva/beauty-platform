@@ -16,6 +16,9 @@ namespace CRMService.Application.Features.Employess.Interfaces
         Task<ServiceDto> GetByIdAsync(Guid serviceId, Guid salonId, Guid ownerId);
         Task<List<ServiceListItemDto>> GetBySalonAsync(Guid salonId, Guid ownerId);
 
+        Task<List<ServiceListItemDto>> GetBySalonPublicAsync(Guid salonId);
+        Task<ServiceDto> GetByIdPublicAsync(Guid serviceId, Guid salonId);
+
         Task<ServiceImageDto> AddImageAsync(Guid serviceId, AddServiceImageCommand command, Guid salonId, Guid ownerId);
         Task RemoveImageAsync(Guid serviceId, Guid imageId, Guid salonId, Guid ownerId);
     }

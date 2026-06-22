@@ -1,13 +1,11 @@
-import React from 'react';
 import OwnerInfoStep from '../components/registration/OwnerInfoStep';
 import SalonInfoStep from '../components/registration/SalonInfoStep';
 import SalonSettingsStep from '../components/registration/SalonSettingsStep';
 import DaysOffStep from '../components/registration/DaysOffStep';
 import WorkTypeStep from '../components/registration/WorkTypeStep';
-import CategoryStep from '../components/registration/CategoryStep';
-import SelfRegStep from '../components/registration/SelfRegStep';
 import AddTeamMemberStep from '../components/registration/AddTeamMemberStep';
-import WelcomeStep from '../components/registration/WelcomeStep';
+import SubscriptionModulesStep from '../components/registration/SubscriptionModulesStep';
+import SubscriptionSummaryStep from '../components/registration/SubscriptionSummaryStep';
 import { useRegistration } from '../features/registration/hooks/useRegistration';
 
 export default function Register() {
@@ -18,10 +16,6 @@ export default function Register() {
     workType,
     setWorkType,
     categories,
-    selectedCategories,
-    setSelectedCategories,
-    yearsExperience,
-    setYearsExperience,
     // Team wizard
     teamSubStep,
     addedMembers,
@@ -43,6 +37,16 @@ export default function Register() {
     onRemovePendingService,
     onAddPendingService,
     onAddAnotherMember,
+    // Subscription
+    subConfig,
+    subConfigLoading,
+    subSelectedModules,
+    toggleSubModule,
+    subMonths,
+    setSubMonths,
+    subExtraMasters,
+    subTotalPrice,
+    getSummaryStep,
     // Shared
     error,
     loading,
@@ -62,11 +66,14 @@ export default function Register() {
     handlePrev,
     handleSubmit,
     getTotalSteps,
-    getWelcomeStep
   } = useRegistration();
 
   const totalSteps = getTotalSteps();
-  const welcomeStep = getWelcomeStep();
+  const summaryStep = getSummaryStep();
+
+  const isTeamStep = step === 7 && (workType === 'team' || workType === 'me_and_team');
+  const isServicesSubStep = teamSubStep === 3 && isTeamStep;
+  const isSummaryStep = step === summaryStep;
 
   const renderStep = () => {
     switch (step) {
@@ -75,7 +82,14 @@ export default function Register() {
       case 2:
         return <SalonInfoStep formData={formData} handleChange={handleChange} />;
       case 3:
-        return <SalonSettingsStep settings={settings} handleSettingsChange={handleSettingsChange} adjustTime={adjustTime} adjustDuration={adjustDuration} />;
+        return (
+          <SalonSettingsStep
+            settings={settings}
+            handleSettingsChange={handleSettingsChange}
+            adjustTime={adjustTime}
+            adjustDuration={adjustDuration}
+          />
+        );
       case 4:
         return (
           <DaysOffStep
@@ -91,9 +105,21 @@ export default function Register() {
           />
         );
       case 5:
-        return <WorkTypeStep workType={workType} setWorkType={setWorkType} />;
+        return (
+          <SubscriptionModulesStep
+            config={subConfig}
+            configLoading={subConfigLoading}
+            selectedModules={subSelectedModules}
+            toggleModule={toggleSubModule}
+            months={subMonths}
+            setMonths={setSubMonths}
+            totalPrice={subTotalPrice}
+          />
+        );
       case 6:
-        if (workType === 'team') {
+        return <WorkTypeStep workType={workType} setWorkType={setWorkType} />;
+      case 7:
+        if (workType === 'team' || workType === 'me_and_team') {
           return (
             <AddTeamMemberStep
               teamSubStep={teamSubStep}
@@ -121,74 +147,34 @@ export default function Register() {
             />
           );
         }
+        // solo: step 7 is the summary
         return (
-          <CategoryStep
-            categories={categories}
-            selectedCategories={selectedCategories}
-            setSelectedCategories={setSelectedCategories}
-          />
-        );
-      case 7:
-        if (workType === 'team') {
-          return <WelcomeStep />;
-        }
-        return (
-          <SelfRegStep
-            yearsExperience={yearsExperience}
-            setYearsExperience={setYearsExperience}
-            workType={workType}
-            selectedCategories={selectedCategories}
+          <SubscriptionSummaryStep
+            config={subConfig}
+            selectedModules={subSelectedModules}
+            extraMasters={subExtraMasters}
+            months={subMonths}
           />
         );
       case 8:
-        if (workType === 'me_and_team') {
-          return (
-            <AddTeamMemberStep
-              teamSubStep={teamSubStep}
-              addedMembers={addedMembers}
-              categories={categories}
-              memberCategories={memberCategories}
-              setMemberCategories={setMemberCategories}
-              memberForm={memberForm}
-              onMemberFormChange={onMemberFormChange}
-              memberYears={memberYears}
-              setMemberYears={setMemberYears}
-              memberCreateAccount={memberCreateAccount}
-              setMemberCreateAccount={setMemberCreateAccount}
-              memberAccountEmail={memberAccountEmail}
-              setMemberAccountEmail={setMemberAccountEmail}
-              memberAccountPassword={memberAccountPassword}
-              setMemberAccountPassword={setMemberAccountPassword}
-              currentEmployee={currentEmployee}
-              pendingServices={pendingServices}
-              onUpdatePendingService={onUpdatePendingService}
-              onRemovePendingService={onRemovePendingService}
-              onAddPendingService={onAddPendingService}
-              onAddAnotherMember={onAddAnotherMember}
-              loading={loading}
-            />
-          );
-        }
-        return <WelcomeStep />; // solo
-      case 9:
-        return <WelcomeStep />; // me_and_team
+        // team / me_and_team: step 8 is the summary
+        return (
+          <SubscriptionSummaryStep
+            config={subConfig}
+            selectedModules={subSelectedModules}
+            extraMasters={subExtraMasters}
+            months={subMonths}
+          />
+        );
       default:
         return null;
     }
   };
 
-  const isWelcomeStep = step === welcomeStep;
-  const isTeamMemberStep = step === 8 && workType === 'me_and_team';
-  const isServicesSubStep = teamSubStep === 3 && (
-    (step === 6 && workType === 'team') ||
-    (step === 8 && workType === 'me_and_team')
-  );
-
   const nextButtonLabel = () => {
-    if (isWelcomeStep) return 'Get Started';
-    if (isTeamMemberStep) return 'Готово';
-    if (loading) return 'Processing...';
-    return 'Next';
+    if (isSummaryStep) return 'Пропустити';
+    if (loading) return 'Завантаження...';
+    return 'Далі';
   };
 
   return (
@@ -240,16 +226,16 @@ export default function Register() {
           {error && <p className="form-error">{error}</p>}
 
           <div className="flex flex-between" style={{ marginTop: 'var(--spacing-xl)' }}>
-            {step > 1 && step < welcomeStep && (
+            {step > 1 && step < summaryStep && (
               <button type="button" className="btn btn-secondary" onClick={handlePrev}>
-                Previous
+                Назад
               </button>
             )}
             <div style={{ flex: 1 }} />
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={loading && !isWelcomeStep}
+              disabled={loading && !isSummaryStep}
             >
               {nextButtonLabel()}
             </button>
@@ -258,8 +244,8 @@ export default function Register() {
 
         {step === 1 && (
           <p className="text-center mt-lg text-secondary">
-            Already have an account?{' '}
-            <a href="/login" style={{ color: 'var(--accent-color)', textDecoration: 'none' }}>Sign in</a>
+            Вже маєте акаунт?{' '}
+            <a href="/login" style={{ color: 'var(--accent-color)', textDecoration: 'none' }}>Увійти</a>
           </p>
         )}
       </div>

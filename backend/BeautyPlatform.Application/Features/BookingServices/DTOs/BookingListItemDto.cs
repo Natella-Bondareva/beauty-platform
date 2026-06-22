@@ -16,6 +16,7 @@ namespace CRMService.Application.Features.BookingServices.DTOs
         public decimal Price { get; set; }
         public string ClientPhone { get; set; } = default!;
         public string ClientName { get; set; } = default!;
+        public Guid EmployeeId { get; set; }
         public string EmployeeName { get; set; } = default!;
         public string ServiceName { get; set; } = default!;
     }

@@ -23,6 +23,13 @@ namespace CRMService.Infrastructure.Repositories
         public async Task<Client?> GetByIdAsync(Guid id)
             => await _context.Clients.FirstOrDefaultAsync(c => c.Id == id);
 
+        public async Task<List<Client>> SearchByPhoneAsync(Guid salonId, string phone, int limit = 5)
+            => await _context.Clients
+                .Where(c => c.SalonId == salonId && c.Phone.Contains(phone))
+                .OrderByDescending(c => c.LastVisitAt)
+                .Take(limit)
+                .ToListAsync();
+
         public async Task AddAsync(Client client)
         {
             await _context.Clients.AddAsync(client);

@@ -2,21 +2,44 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '../../../components/dashboard/Icon';
 
-const SLOT_H = 44;         // px per 30-min slot
-const TIME_W = 64;         // px for the time column
+const SLOT_H   = 44;       // px per 30-min slot
+const TIME_W   = 64;       // px for time column
 const MIN_COL_W = 140;     // px minimum column width
 const START_HOUR = 9;
 const END_HOUR   = 21;
 
-const UA_DAYS  = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
-const UA_MONTH = ['січня','лютого','березня','квітня','травня','червня',
-                  'липня','серпня','вересня','жовтня','листопада','грудня'];
+const UA_DAYS        = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+const UA_MONTH       = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
 const UA_MONTH_SHORT = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
+
+// ── Booking status colors ─────────────────────────────────────────────────────
+// status: 0=Pending, 1=Confirmed, 2=Completed, 3=Expired, 4=Cancelled, 5=NoShow
+const STATUS_STYLE = {
+  0: { bg: '#fef9c3', border: '#fbbf24', text: '#92400e' },  // Pending   — жовтий
+  1: { bg: '#dbeafe', border: '#60a5fa', text: '#1e40af' },  // Confirmed — синій
+  2: { bg: '#dcfce7', border: '#4ade80', text: '#166534' },  // Completed — зелений
+  3: { bg: '#f3f4f6', border: '#d1d5db', text: '#6b7280' },  // Expired   — сірий
+  4: { bg: '#f3f4f6', border: '#d1d5db', text: '#6b7280' },  // Cancelled — сірий
+  5: { bg: '#fee2e2', border: '#fca5a5', text: '#991b1b' },  // NoShow    — червоний
+};
+
+const STATUS_LABEL = {
+  0: 'Очікує',
+  1: 'Підтверджено',
+  2: 'Завершено',
+  3: 'Протерміновано',
+  4: 'Скасовано',
+  5: 'Не з\'явився',
+};
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
 
 function generateSlots() {
   const slots = [];
   for (let m = START_HOUR * 60; m < END_HOUR * 60; m += 30) {
-    slots.push({ h: Math.floor(m / 60), min: m % 60, label: `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}` });
+    const h   = Math.floor(m / 60);
+    const min = m % 60;
+    slots.push({ h, min, totalMins: m, label: `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}` });
   }
   return slots;
 }
@@ -44,6 +67,88 @@ function isSameDay(a, b) {
          a.getDate()     === b.getDate();
 }
 
+function toIsoDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+
+// "09:00:00" → хвилини від початку доби
+function timeSpanToMins(ts) {
+  if (!ts) return 0;
+  const parts = ts.split(':');
+  return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+}
+
+// UTC datetime → локальний "HH:MM"
+function utcToLocalLabel(utcStr) {
+  const d = new Date(utcStr);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function durationMins(startUtc, endUtc) {
+  return Math.round((new Date(endUtc) - new Date(startUtc)) / 60_000);
+}
+
+// ── Lookup builders ───────────────────────────────────────────────────────────
+
+/**
+ * Будує Map: employeeId → Map<DayOfWeek(0-6 JS), { isWorking, startMins, endMins }>
+ * DayOfWeek у C#/.NET: Sunday=0, Monday=1 …  (те саме що JS getDay())
+ */
+function buildScheduleMap(schedules) {
+  const map = new Map();
+  for (const emp of schedules) {
+    const dayMap = new Map();
+    for (const s of emp.schedule ?? []) {
+      dayMap.set(s.dayOfWeek, {
+        isWorking: s.isWorking,
+        startMins: timeSpanToMins(s.startTime),
+        endMins:   timeSpanToMins(s.endTime),
+      });
+    }
+    map.set(emp.employeeId, dayMap);
+  }
+  return map;
+}
+
+/**
+ * Повертає стан клітинки для конкретного (employeeId, date, slotMins):
+ * 'nonWorking' | 'offHours' | 'break' | null (вільно/бронювання окремо)
+ */
+function getCellState(employeeId, date, slotMins, scheduleMap, breaks) {
+  const dayMap = scheduleMap.get(employeeId);
+  const dayOfWeek = date.getDay(); // 0=Sun … 6=Sat — збігається з C# DayOfWeek
+  const day = dayMap?.get(dayOfWeek);
+
+  if (!day || !day.isWorking) return 'nonWorking';
+  if (slotMins < day.startMins || slotMins >= day.endMins) return 'offHours';
+
+  const isoDate = toIsoDate(date);
+  const hasBreak = breaks.some(
+    (b) =>
+      b.employeeId === employeeId &&
+      b.date === isoDate &&
+      timeSpanToMins(b.startTime) <= slotMins &&
+      timeSpanToMins(b.endTime)   >  slotMins
+  );
+  if (hasBreak) return 'break';
+
+  return null; // вільний або бронювання — рендеримо далі
+}
+
+function getBreakReason(employeeId, date, slotMins, breaks) {
+  const isoDate = toIsoDate(date);
+  const b = breaks.find(
+    (b) =>
+      b.employeeId === employeeId &&
+      b.date === isoDate &&
+      timeSpanToMins(b.startTime) <= slotMins &&
+      timeSpanToMins(b.endTime)   >  slotMins
+  );
+  return b?.reason ?? 'Перерва';
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
 function Avatar({ name, size = 32 }) {
   const initial = (name || '?').charAt(0).toUpperCase();
   const hue = [...(name || '')].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360;
@@ -69,29 +174,38 @@ function NavBtn({ onClick, children, title }) {
         color: '#64748b', transition: 'all 0.15s', fontSize: 16
       }}
       onMouseEnter={e => { e.currentTarget.style.background = '#FFF5F0'; e.currentTarget.style.borderColor = '#D57A66'; }}
-      onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#FFD1B3'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = '#fff';    e.currentTarget.style.borderColor = '#FFD1B3'; }}
     >{children}</button>
   );
 }
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function ScheduleGrid({
   viewMode, setViewMode,
   selectedDate, setSelectedDate,
   selectedMasterId, setSelectedMasterId,
-  employees, appointments = [],
+  employees,
+  bookings  = [],
+  schedules = [],   // [{ employeeId, schedule: [{ dayOfWeek, isWorking, startTime, endTime }] }]
+  breaks    = [],   // [{ id, employeeId, date, startTime, endTime, reason }]
   loading,
   onNewBooking,
+  onBookingClick,
 }) {
   const routerNavigate = useNavigate();
-  const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
+  const today     = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const timeSlots = useMemo(generateSlots, []);
   const weekDays  = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
 
-  // Live current-time indicator (updates every minute)
+  // Карта розкладів для швидкого пошуку
+  const scheduleMap = useMemo(() => buildScheduleMap(schedules), [schedules]);
+
+  // Live current-time indicator
   const [nowPos, setNowPos] = useState(null);
   useEffect(() => {
     const calc = () => {
-      const now = new Date();
+      const now  = new Date();
       const mins = now.getHours() * 60 + now.getMinutes();
       const start = START_HOUR * 60;
       const end   = END_HOUR   * 60;
@@ -109,7 +223,6 @@ export default function ScheduleGrid({
   };
 
   const goToday = () => setSelectedDate(new Date());
-
   const isCurrentWeek = isSameDay(getMondayOfWeek(selectedDate), getMondayOfWeek(today));
 
   const formatRange = () => {
@@ -125,22 +238,25 @@ export default function ScheduleGrid({
     return `${UA_DAYS[(d.getDay() + 6) % 7]}, ${d.getDate()} ${UA_MONTH[d.getMonth()]} ${d.getFullYear()}`;
   };
 
-  // For week view: one master, days as columns
-  // For day view: one day, masters as columns
-  const columns = viewMode === 'week' ? weekDays : employees;
-  const colCount = columns.length || 1;
-  const gridCols = `${TIME_W}px repeat(${colCount}, minmax(${MIN_COL_W}px, 1fr))`;
+  const columns   = viewMode === 'week' ? weekDays : employees;
+  const colCount  = columns.length || 1;
+  const gridCols  = `${TIME_W}px repeat(${colCount}, minmax(${MIN_COL_W}px, 1fr))`;
 
-  const getAppts = (colIdx, slotLabel) =>
-    appointments.filter(a => {
+  // Повертає бронювання що ПОЧИНАЮТЬСЯ у цьому слоті для колонки
+  const getBookingsAt = (colIdx, slot) =>
+    bookings.filter((b) => {
+      const startLocal = utcToLocalLabel(b.startTimeUtc);
       if (viewMode === 'week') {
-        return isSameDay(new Date(a.date), columns[colIdx]) &&
-               a.employeeId === selectedMasterId && a.startTime === slotLabel;
+        return (
+          isSameDay(new Date(b.startTimeUtc), columns[colIdx]) &&
+          b.employeeId === selectedMasterId &&
+          startLocal === slot.label
+        );
       }
-      return a.employeeId === columns[colIdx]?.id && a.startTime === slotLabel;
+      return b.employeeId === columns[colIdx]?.id && startLocal === slot.label;
     });
 
-  // ── Toolbar ────────────────────────────────────────────────────────
+  // ── Toolbar ─────────────────────────────────────────────────────────────────
 
   const Toolbar = (
     <div style={{
@@ -154,7 +270,7 @@ export default function ScheduleGrid({
         {[['week','Тиждень'],['day','День']].map(([m, label]) => (
           <button key={m} onClick={() => setViewMode(m)} style={{
             padding: '7px 20px', border: 'none', cursor: 'pointer',
-            fontSize: 13, fontWeight: 500, letterSpacing: '0.2px',
+            fontSize: 13, fontWeight: 500,
             background: viewMode === m ? 'var(--gradient-primary)' : 'transparent',
             color: viewMode === m ? '#fff' : '#64748b',
             transition: 'all 0.18s'
@@ -182,7 +298,7 @@ export default function ScheduleGrid({
         {viewMode === 'week' ? formatRange() : formatDay()}
       </span>
 
-      {/* Master filter — shown in week view */}
+      {/* Master filter — week view */}
       {viewMode === 'week' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap' }}>
@@ -221,7 +337,7 @@ export default function ScheduleGrid({
     </div>
   );
 
-  // ── Grid ───────────────────────────────────────────────────────────
+  // ── Header row ───────────────────────────────────────────────────────────────
 
   const HeaderRow = (
     <div style={{
@@ -230,7 +346,6 @@ export default function ScheduleGrid({
       background: '#fff', borderBottom: '2px solid #FFD1B3',
       boxShadow: '0 2px 6px rgba(213,122,102,0.08)'
     }}>
-      {/* corner */}
       <div style={{ background: '#FFF5F0', borderRight: '1px solid #FFD1B3' }} />
 
       {viewMode === 'week'
@@ -241,7 +356,6 @@ export default function ScheduleGrid({
                 padding: '10px 8px', textAlign: 'center',
                 borderLeft: '1px solid #FFD1B3',
                 background: isToday ? 'linear-gradient(135deg,#FFD1B3,#D57A66)' : '#FFF5F0',
-                transition: 'background 0.2s'
               }}>
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: isToday ? 'rgba(255,255,255,0.85)' : '#94a3b8' }}>
                   {UA_DAYS[i]}
@@ -255,23 +369,27 @@ export default function ScheduleGrid({
               </div>
             );
           })
-        : employees.map((emp, i) => (
+        : employees.map((emp) => (
             <div key={emp.id} style={{
               padding: '10px 8px', textAlign: 'center',
               borderLeft: '1px solid #FFD1B3', background: '#FFF5F0'
             }}>
-              <Avatar name={emp.fullName} size={36} />
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <Avatar name={emp.fullName} size={36} />
+              </div>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#1E293B', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {emp.fullName.split(' ')[0]}
               </div>
               <div style={{ fontSize: 10, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {emp.categories?.[0]?.name || ''}
+                {emp.categories?.[0]?.name ?? ''}
               </div>
             </div>
           ))
       }
     </div>
   );
+
+  // ── Grid body ─────────────────────────────────────────────────────────────────
 
   const GridBody = (
     <div style={{ position: 'relative' }}>
@@ -283,12 +401,12 @@ export default function ScheduleGrid({
         </div>
       )}
 
-      {timeSlots.map(({ h, min, label }) => {
-        const isHour   = min === 0;
-        const isEvenH  = h % 2 === 0;
+      {timeSlots.map((slot) => {
+        const isHour  = slot.min === 0;
+        const isEvenH = slot.h % 2 === 0;
 
         return (
-          <div key={label} style={{
+          <div key={slot.label} style={{
             display: 'grid', gridTemplateColumns: gridCols,
             minHeight: SLOT_H,
             borderBottom: `1px solid ${isHour ? '#FFD1B3' : 'rgba(255,209,179,0.35)'}`,
@@ -302,48 +420,134 @@ export default function ScheduleGrid({
             }}>
               {isHour && (
                 <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap', lineHeight: 1 }}>
-                  {label}
+                  {slot.label}
                 </span>
               )}
             </div>
 
             {/* Cells */}
             {columns.map((col, ci) => {
-              const appts = getAppts(ci, label);
-              const isColToday = viewMode === 'week' ? isSameDay(col, today) : isSameDay(selectedDate, today);
+              // Визначаємо ідентифікатор майстра і дату для цієї клітинки
+              const employeeId = viewMode === 'week' ? selectedMasterId : col?.id;
+              const cellDate   = viewMode === 'week' ? col : selectedDate;
+
+              const state = employeeId
+                ? getCellState(employeeId, cellDate, slot.totalMins, scheduleMap, breaks)
+                : null;
+
+              const isNonWorking = state === 'nonWorking';
+              const isOffHours   = state === 'offHours';
+              const isBreak      = state === 'break';
+              const isFirstSlot  = slot.h === START_HOUR && slot.min === 0;
+
+              // Колір фону клітинки
+              let cellBg;
+              if (isNonWorking)     cellBg = '#f1f5f9';
+              else if (isOffHours)  cellBg = '#f8fafc';
+              else if (isBreak)     cellBg = 'rgba(251,191,36,0.12)';
+              else {
+                const isColToday = viewMode === 'week'
+                  ? isSameDay(col, today)
+                  : isSameDay(selectedDate, today);
+                cellBg = isColToday
+                  ? (isHour ? 'rgba(213,122,102,0.04)' : 'rgba(213,122,102,0.02)')
+                  : (isEvenH && isHour ? 'rgba(0,0,0,0.008)' : 'transparent');
+              }
+
+              const cellBookings = (!isNonWorking && !isOffHours && !isBreak)
+                ? getBookingsAt(ci, slot)
+                : [];
 
               return (
                 <div
                   key={ci}
+                  onClick={() => {
+                    if (!isNonWorking && !isOffHours && !isBreak && cellBookings.length === 0) {
+                      onNewBooking?.({ employeeId, date: cellDate, time: slot.label });
+                    }
+                  }}
                   style={{
                     borderLeft: `1px solid ${isHour ? '#FFD1B3' : 'rgba(255,209,179,0.35)'}`,
-                    minHeight: SLOT_H, position: 'relative', cursor: 'pointer',
-                    background: isColToday
-                      ? (isHour ? 'rgba(213,122,102,0.04)' : 'rgba(213,122,102,0.02)')
-                      : (isEvenH && isHour ? 'rgba(0,0,0,0.008)' : 'transparent'),
-                    transition: 'background 0.12s'
+                    minHeight: SLOT_H,
+                    position: 'relative',
+                    background: cellBg,
+                    cursor: (!isNonWorking && !isOffHours && !isBreak && cellBookings.length === 0)
+                      ? 'pointer' : 'default',
+                    transition: 'background 0.12s',
                   }}
                   onMouseEnter={e => {
-                    if (appts.length === 0) e.currentTarget.style.background = 'rgba(213,122,102,0.07)';
+                    if (!isNonWorking && !isOffHours && !isBreak && cellBookings.length === 0)
+                      e.currentTarget.style.background = 'rgba(213,122,102,0.07)';
                   }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = isColToday
-                      ? (isHour ? 'rgba(213,122,102,0.04)' : 'rgba(213,122,102,0.02)')
-                      : (isEvenH && isHour ? 'rgba(0,0,0,0.008)' : 'transparent');
-                  }}
+                  onMouseLeave={e => { e.currentTarget.style.background = cellBg; }}
                 >
-                  {appts.map(a => (
-                    <div key={a.id} style={{
-                      position: 'absolute', top: 2, left: 2, right: 2, zIndex: 3,
-                      background: 'var(--gradient-primary)', borderRadius: 7,
-                      padding: '4px 8px', fontSize: 11, color: '#fff', fontWeight: 600,
-                      overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-                      boxShadow: '0 2px 8px rgba(213,122,102,0.35)',
-                      cursor: 'pointer'
+                  {/* Вихідний label — показуємо один раз у першому слоті */}
+                  {isNonWorking && isFirstSlot && (
+                    <div style={{
+                      position: 'absolute', top: 6, left: 0, right: 0,
+                      textAlign: 'center', fontSize: 10, fontWeight: 600,
+                      color: '#94a3b8', letterSpacing: '0.5px', pointerEvents: 'none',
+                      zIndex: 2,
                     }}>
-                      {a.clientName} — {a.serviceName}
+                      ВИХІДНИЙ
                     </div>
-                  ))}
+                  )}
+
+                  {/* Перерва label */}
+                  {isBreak && (
+                    <div style={{
+                      position: 'absolute', top: 2, left: 2, right: 2, bottom: 2,
+                      borderRadius: 6,
+                      background: 'rgba(251,191,36,0.25)',
+                      border: '1px solid rgba(251,191,36,0.5)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 10, fontWeight: 600, color: '#92400e',
+                      pointerEvents: 'none', zIndex: 2,
+                    }}>
+                      {getBreakReason(employeeId, cellDate, slot.totalMins, breaks)}
+                    </div>
+                  )}
+
+                  {/* Бронювання */}
+                  {cellBookings.map((b) => {
+                    const dur     = durationMins(b.startTimeUtc, b.endTimeUtc);
+                    const heightPx = Math.max((dur / 30) * SLOT_H - 4, SLOT_H - 4);
+                    const style   = STATUS_STYLE[b.status] ?? STATUS_STYLE[1];
+                    return (
+                      <div
+                        key={b.id}
+                        title={`${b.clientName} — ${b.serviceName}\n${STATUS_LABEL[b.status]}`}
+                        onClick={(e) => { e.stopPropagation(); onBookingClick?.(b.id); }}
+                        style={{
+                          position: 'absolute', top: 2, left: 2, right: 2,
+                          height: heightPx,
+                          zIndex: 3,
+                          borderRadius: 7,
+                          background: style.bg,
+                          border: `1.5px solid ${style.border}`,
+                          padding: '3px 7px',
+                          overflow: 'hidden',
+                          cursor: 'pointer',
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                          transition: 'filter 0.12s',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(0.96)')}
+                        onMouseLeave={e => (e.currentTarget.style.filter = 'none')}
+                      >
+                        <div style={{ fontSize: 11, fontWeight: 700, color: style.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {b.clientName || b.clientPhone}
+                        </div>
+                        <div style={{ fontSize: 10, color: style.text, opacity: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {b.serviceName}
+                        </div>
+                        {dur > 30 && (
+                          <div style={{ fontSize: 10, color: style.text, opacity: 0.65, marginTop: 1 }}>
+                            {utcToLocalLabel(b.startTimeUtc)}–{utcToLocalLabel(b.endTimeUtc)} · {b.price} ₴
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
@@ -353,7 +557,7 @@ export default function ScheduleGrid({
     </div>
   );
 
-  // ── Empty states ───────────────────────────────────────────────────
+  // ── Empty / loading states ────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -396,7 +600,7 @@ export default function ScheduleGrid({
           <div style={{ textAlign: 'center', color: '#94a3b8', maxWidth: 300 }}>
             <Icon name="person" size={48} color="#FFD1B3" />
             <p style={{ fontSize: 15, fontWeight: 600, marginTop: 16, color: '#64748b' }}>Оберіть майстра</p>
-            <p style={{ fontSize: 13, marginTop: 6 }}>Натисніть на ім'я майстра у фільтрі вище щоб переглянути його тижневий розклад</p>
+            <p style={{ fontSize: 13, marginTop: 6 }}>Натисніть на ім'я майстра у фільтрі вище</p>
           </div>
         </div>
       </div>
@@ -412,26 +616,24 @@ export default function ScheduleGrid({
           {GridBody}
         </div>
 
-        {/* Empty schedule CTA */}
-        {appointments.length === 0 && (
+        {/* Порожній стан — тільки якщо немає бронювань на цей тиждень */}
+        {bookings.length === 0 && !loading && (
           <div style={{
             position: 'absolute', top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)',
-            textAlign: 'center', pointerEvents: 'none',
-            zIndex: 6,
+            textAlign: 'center', zIndex: 6,
           }}>
             <div style={{
               background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(6px)',
               borderRadius: 18, padding: '28px 36px',
               boxShadow: '0 4px 24px rgba(213,122,102,0.14)',
               border: '1px solid #FFD1B3',
-              pointerEvents: 'auto',
             }}>
               <Icon name="calendar" size={40} color="#FFD1B3" />
               <p style={{ margin: '12px 0 4px', fontSize: 15, fontWeight: 600, color: '#64748b' }}>Записів ще немає</p>
               <p style={{ margin: '0 0 18px', fontSize: 13, color: '#94a3b8' }}>Натисніть на вільний слот або створіть запис вручну</p>
               <button
-                onClick={onNewBooking}
+                onClick={() => onNewBooking?.()}
                 style={{ padding: '9px 22px', borderRadius: 10, border: 'none', background: 'var(--gradient-primary)', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600, boxShadow: '0 2px 10px rgba(213,122,102,0.3)' }}
               >Зробити перший запис</button>
             </div>

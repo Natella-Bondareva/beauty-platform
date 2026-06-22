@@ -22,5 +22,6 @@ namespace CRMService.Application.Features.BookingServices.DTOs
         public ClientShortDto Client { get; set; } = default!;
         public EmployeeShortDto Employee { get; set; } = default!;
         public ServiceShortDto Service { get; set; } = default!;
+        public List<BookingFieldAnswerDto> FieldAnswers { get; set; } = new();
     }
 }

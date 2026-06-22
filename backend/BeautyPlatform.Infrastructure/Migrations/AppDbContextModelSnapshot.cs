@@ -17,7 +17,7 @@ namespace CRMService.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.10")
+                .HasAnnotation("ProductVersion", "9.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -82,6 +82,74 @@ namespace CRMService.Infrastructure.Migrations
                     b.HasIndex("EmployeeId", "StartTimeUtc", "Status");
 
                     b.ToTable("Bookings", (string)null);
+                });
+
+            modelBuilder.Entity("CRMService.Domain.Entities.BookingField", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Placeholder")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("SalonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Scope")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("BookingFields", (string)null);
+                });
+
+            modelBuilder.Entity("CRMService.Domain.Entities.BookingFieldAnswer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BookingFieldId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("TextValue")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingFieldId");
+
+                    b.HasIndex("BookingId");
+
+                    b.ToTable("BookingFieldAnswers", (string)null);
                 });
 
             modelBuilder.Entity("CRMService.Domain.Entities.CategoryDefaultService", b =>
@@ -194,6 +262,9 @@ namespace CRMService.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Phone")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -296,6 +367,38 @@ namespace CRMService.Infrastructure.Migrations
                     b.ToTable("EmployeeServices", (string)null);
                 });
 
+            modelBuilder.Entity("CRMService.Domain.Entities.MasterContract", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MasterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("PaymentPeriodDays")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SalonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MasterContracts", (string)null);
+                });
+
             modelBuilder.Entity("CRMService.Domain.Entities.MasterSchedule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -356,6 +459,49 @@ namespace CRMService.Infrastructure.Migrations
                             Id = new Guid("22222222-2222-2222-2222-222222222222"),
                             Name = "Master"
                         });
+                });
+
+            modelBuilder.Entity("CRMService.Domain.Entities.SalaryPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContractId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("EarnedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("ForecastAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("MasterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("PeriodEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("PeriodStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SalonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SalaryPayments", (string)null);
                 });
 
             modelBuilder.Entity("CRMService.Domain.Entities.Salon", b =>
@@ -518,6 +664,76 @@ namespace CRMService.Infrastructure.Migrations
                     b.ToTable("SpecializationCategories", (string)null);
                 });
 
+            modelBuilder.Entity("CRMService.Domain.Entities.Subscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("PaidMasterSlots")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<Guid>("SalonId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SalonId")
+                        .IsUnique();
+
+                    b.ToTable("Subscriptions", (string)null);
+                });
+
+            modelBuilder.Entity("CRMService.Domain.Entities.SubscriptionPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ExternalPaymentId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("SalonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SalonId");
+
+                    b.ToTable("SubscriptionPayments", (string)null);
+                });
+
             modelBuilder.Entity("CRMService.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -593,6 +809,51 @@ namespace CRMService.Infrastructure.Migrations
                     b.Navigation("Salon");
 
                     b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("CRMService.Domain.Entities.BookingField", b =>
+                {
+                    b.OwnsMany("CRMService.Domain.Entities.BookingFieldOption", "Options", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("BookingFieldId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Value")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("BookingFieldId");
+
+                            b1.ToTable("BookingFieldOptions", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("BookingFieldId");
+                        });
+
+                    b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("CRMService.Domain.Entities.BookingFieldAnswer", b =>
+                {
+                    b.HasOne("CRMService.Domain.Entities.BookingField", "Field")
+                        .WithMany()
+                        .HasForeignKey("BookingFieldId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CRMService.Domain.Entities.Booking", null)
+                        .WithMany("FieldAnswers")
+                        .HasForeignKey("BookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Field");
                 });
 
             modelBuilder.Entity("CRMService.Domain.Entities.CategoryDefaultService", b =>
@@ -883,6 +1144,49 @@ namespace CRMService.Infrastructure.Migrations
                     b.Navigation("Salon");
                 });
 
+            modelBuilder.Entity("CRMService.Domain.Entities.Subscription", b =>
+                {
+                    b.HasOne("CRMService.Domain.Entities.Salon", null)
+                        .WithOne()
+                        .HasForeignKey("CRMService.Domain.Entities.Subscription", "SalonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsMany("CRMService.Domain.Entities.SubscriptionModule", "Modules", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<DateTime>("AddedAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<DateTime>("ExpiresAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<int>("Module")
+                                .HasColumnType("integer");
+
+                            b1.Property<int>("Quantity")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer")
+                                .HasDefaultValue(1);
+
+                            b1.Property<Guid>("SubscriptionId")
+                                .HasColumnType("uuid");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("SubscriptionId");
+
+                            b1.ToTable("SubscriptionModules", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("SubscriptionId");
+                        });
+
+                    b.Navigation("Modules");
+                });
+
             modelBuilder.Entity("CRMService.Domain.Entities.User", b =>
                 {
                     b.HasOne("CRMService.Domain.Entities.Role", "Role")
@@ -892,6 +1196,11 @@ namespace CRMService.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("CRMService.Domain.Entities.Booking", b =>
+                {
+                    b.Navigation("FieldAnswers");
                 });
 
             modelBuilder.Entity("CRMService.Domain.Entities.Client", b =>

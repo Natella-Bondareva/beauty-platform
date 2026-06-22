@@ -48,6 +48,11 @@ namespace CRMService.Infrastructure.Persistence.Configurations
                 .HasForeignKey(x => x.ServiceId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            builder.HasMany(b => b.FieldAnswers)
+                .WithOne()
+                .HasForeignKey(a => a.BookingId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Індекс для перевірки слотів — найчастіший запит
             builder.HasIndex(x => new { x.EmployeeId, x.StartTimeUtc, x.Status });
             builder.HasIndex(x => new { x.SalonId, x.StartTimeUtc });

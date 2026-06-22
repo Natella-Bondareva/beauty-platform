@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../../auth/api/auth.api';
 import { salonApi } from '../../services/api/salon.api';
 import { settingsApi } from '../../settings/api/settings.api';
 import { employeeApi } from '../../employees/api/employee.api';
+import { subscriptionApi } from '../../pricing/api/subscription.api';
 
 export function useRegistration() {
   const [step, setStep] = useState(1);
@@ -33,9 +34,16 @@ export function useRegistration() {
   const [newSpecialReason, setNewSpecialReason] = useState('');
   const [categories, setCategories] = useState([]);
 
-  // Owner self-registration (step 7 for solo/me_and_team)
+  // Owner self-registration (kept for future use)
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [yearsExperience, setYearsExperience] = useState('');
+
+  // Subscription state
+  const [subConfig, setSubConfig] = useState(null);
+  const [subConfigLoading, setSubConfigLoading] = useState(false);
+  const [subSelectedModules, setSubSelectedModules] = useState([]);
+  const [subMonths, setSubMonths] = useState(1);
+  const [subExtraMasters, setSubExtraMasters] = useState(0);
 
   // Team wizard (step 6 for team, step 8 for me_and_team)
   const [teamSubStep, setTeamSubStep] = useState(1); // 1=categories, 2=form, 3=services
@@ -55,22 +63,60 @@ export function useRegistration() {
 
   const navigate = useNavigate();
 
-  // ── Step flow helpers ──────────────────────────────────────────────
+  // ── Subscription helpers ──────────────────────────────────────────
 
-  const getWelcomeStep = () => {
-    if (workType === 'team') return 7;
-    if (workType === 'me_and_team') return 9;
-    return 8; // solo
+  useEffect(() => {
+    if (!salonId) return;
+    setSubConfigLoading(true);
+    subscriptionApi.getConfig()
+      .then(res => setSubConfig(res.data))
+      .catch(() => {})
+      .finally(() => setSubConfigLoading(false));
+  }, [salonId]);
+
+  const toggleSubModule = (moduleId) => {
+    setSubSelectedModules(prev =>
+      prev.includes(moduleId) ? prev.filter(m => m !== moduleId) : [...prev, moduleId]
+    );
   };
 
+  const calculateSubPrice = () => {
+    if (!subConfig) return 0;
+    const masterPrice = subExtraMasters * subConfig.pricePerMaster * subMonths;
+    const modulesPrice = subSelectedModules.reduce((sum, id) => {
+      const mod = subConfig.paidModules.find(m => m.id === id);
+      return sum + (mod?.price ?? 0) * subMonths;
+    }, 0);
+    return masterPrice + modulesPrice;
+  };
+
+  // ── Step flow helpers ──────────────────────────────────────────────
+
+  // Step layout:
+  //  1  OwnerInfoStep       (register user)
+  //  2  SalonInfoStep       (create salon)
+  //  3  SalonSettingsStep   (hours)
+  //  4  DaysOffStep         (days off)
+  //  5  SubscriptionModulesStep (pricing / modules)
+  //  6  WorkTypeStep
+  //  7  AddTeamMemberStep   (team / me_and_team only) OR SubscriptionSummaryStep (solo)
+  //  8  SubscriptionSummaryStep (team / me_and_team only)
+
+  const getSummaryStep = () => {
+    if (workType === 'team' || workType === 'me_and_team') return 8;
+    return 7;
+  };
+
+  // Keep getWelcomeStep as alias so Register.js doesn't break during transition
+  const getWelcomeStep = getSummaryStep;
+
   const getTotalSteps = () => {
-    if (workType === 'team') return 7;
-    if (workType === 'me_and_team') return 9;
-    return 8; // solo
+    if (workType === 'team' || workType === 'me_and_team') return 8;
+    return 7;
   };
 
   const isTeamWizardActive = () =>
-    (step === 6 && workType === 'team') || (step === 8 && workType === 'me_and_team');
+    step === 7 && (workType === 'team' || workType === 'me_and_team');
 
   // ── Generic handlers ───────────────────────────────────────────────
 
@@ -133,7 +179,7 @@ export function useRegistration() {
     if (!newSpecialDate || !salonId) return;
     try {
       const date = new Date(newSpecialDate).toISOString();
-      const response = await settingsApi.addSpecialDayOff(salonId, date, newSpecialReason || null);
+      const response = await settingsApi.addSpecialDayOff(salonId, { date, reason: newSpecialReason || null });
       setSpecialDaysOff(prev => [...prev, response.data]);
       setNewSpecialDate('');
       setNewSpecialReason('');
@@ -188,7 +234,7 @@ export function useRegistration() {
 
     const [catRes, salonRes] = await Promise.all([
       salonApi.getCategories(id),
-      settingsApi.get(id)
+      settingsApi.getSettings(id)
     ]);
     setCategories(catRes.data);
     const salonData = salonRes.data || {};
@@ -214,7 +260,7 @@ export function useRegistration() {
       setError('Closing time must be after opening time');
       return false;
     }
-    await settingsApi.update(salonId, {
+    await settingsApi.updateSettings(salonId, {
       openingTime: `${settings.openingTime}:00`,
       closingTime: `${settings.closingTime}:00`,
       slotDurationMinutes: settings.defaultSlotDurationMinutes
@@ -369,9 +415,9 @@ export function useRegistration() {
           });
         }
         setAddedMembers(prev => [...prev, { fullName: currentEmployee?.fullName || '' }]);
-        const welcome = getWelcomeStep();
+        setSubExtraMasters(prev => prev + 1);
         resetMemberState();
-        setStep(welcome);
+        setStep(getSummaryStep());
       } catch (err) {
         setError(err?.response?.data?.error || 'Помилка збереження послуг');
       } finally {
@@ -382,7 +428,8 @@ export function useRegistration() {
 
   const handleAddAnotherMember = () => {
     setAddedMembers(prev => [...prev, { fullName: currentEmployee?.fullName || '' }]);
-    resetMemberState(); // resets teamSubStep to 1
+    setSubExtraMasters(prev => prev + 1);
+    resetMemberState(); // resets teamSubStep to 1, stays on step 7
   };
 
   // ── Pending-service management (team wizard sub-step 3) ──────────────
@@ -411,29 +458,26 @@ export function useRegistration() {
       } else if (step === 3) {
         if (await submitStep3()) setStep(4);
       } else if (step === 4) {
+        // DaysOff — already handled reactively, just advance
         setStep(5);
       } else if (step === 5) {
-        if (submitStep5()) setStep(6);
+        // SubscriptionModules — just advance (selection already tracked in state)
+        setStep(6);
       } else if (step === 6) {
-        if (workType === 'team') {
+        // WorkType
+        if (!workType) { setError('Please select an option'); return; }
+        setStep(7);
+      } else if (step === 7) {
+        if (workType === 'team' || workType === 'me_and_team') {
+          // Team wizard: handles its own sub-steps, advances to step 8 on completion
           await handleTeamWizardStep();
         } else {
-          if (submitStep6categories()) setStep(7);
-        }
-      } else if (step === 7) {
-        if (workType === 'team') {
+          // Solo: step 7 is the summary → skip to dashboard
           navigate('/dashboard');
-        } else {
-          if (await submitStep7selfReg()) setStep(8);
         }
       } else if (step === 8) {
-        if (workType === 'me_and_team') {
-          await handleTeamWizardStep();
-        } else {
-          navigate('/dashboard'); // solo welcome
-        }
-      } else {
-        navigate('/dashboard'); // step 9 — me_and_team welcome
+        // Summary step for team/me_and_team → skip to dashboard
+        navigate('/dashboard');
       }
     } catch (err) {
       console.error(err);
@@ -490,6 +534,16 @@ export function useRegistration() {
     onAddPendingService,
     onAddAnotherMember: handleAddAnotherMember,
     isTeamWizardActive,
+    // Subscription
+    subConfig,
+    subConfigLoading,
+    subSelectedModules,
+    toggleSubModule,
+    subMonths,
+    setSubMonths,
+    subExtraMasters,
+    subTotalPrice: calculateSubPrice(),
+    getSummaryStep,
     // Shared
     error,
     loading,

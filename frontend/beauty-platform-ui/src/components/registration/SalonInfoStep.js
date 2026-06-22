@@ -3,10 +3,10 @@ import React from 'react';
 export default function SalonInfoStep({ formData, handleChange }) {
   return (
     <div>
-      <h2 className="card-title">Salon Information</h2>
-      <p className="card-subtitle">Tell us about your beauty salon</p>
+      <h2 className="card-title">Інформація про салон</h2>
+      <p className="card-subtitle">Розкажіть про ваш салон краси</p>
       <div className="form-group">
-        <label className="form-label" htmlFor="salonName">Salon Name</label>
+        <label className="form-label" htmlFor="salonName">Назва салону</label>
         <input
           type="text"
           id="salonName"
@@ -15,11 +15,11 @@ export default function SalonInfoStep({ formData, handleChange }) {
           value={formData.salonName}
           onChange={handleChange}
           required
-          placeholder="Enter your salon name"
+          placeholder="Введіть назву салону"
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="phone">Phone Number</label>
+        <label className="form-label" htmlFor="phone">Номер телефону</label>
         <input
           type="tel"
           id="phone"
@@ -32,7 +32,7 @@ export default function SalonInfoStep({ formData, handleChange }) {
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="street">Street Address</label>
+        <label className="form-label" htmlFor="street">Вулиця</label>
         <input
           type="text"
           id="street"
@@ -41,11 +41,11 @@ export default function SalonInfoStep({ formData, handleChange }) {
           value={formData.street}
           onChange={handleChange}
           required
-          placeholder="Enter street address"
+          placeholder="Введіть адресу"
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="city">City</label>
+        <label className="form-label" htmlFor="city">Місто</label>
         <input
           type="text"
           id="city"
@@ -54,7 +54,7 @@ export default function SalonInfoStep({ formData, handleChange }) {
           value={formData.city}
           onChange={handleChange}
           required
-          placeholder="Enter city"
+          placeholder="Введіть місто"
         />
       </div>
     </div>

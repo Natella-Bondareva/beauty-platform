@@ -13,20 +13,20 @@ export default function DaysOffSelector({
 }) {
   return (
     <div>
-      <h2 className="card-title">Days Off</h2>
-      <p className="card-subtitle">Set your regular days off and special holidays</p>
+      <h2 className="card-title">Вихідні дні</h2>
+      <p className="card-subtitle">Встановіть регулярні та спеціальні вихідні</p>
 
       <div className="form-group">
-        <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--text-color)' }}>Regular Days Off (weekly)</h3>
+        <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--text-color)' }}>Регулярні вихідні (щотижня)</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
           {[
-            { value: 1, label: 'Monday' },
-            { value: 2, label: 'Tuesday' },
-            { value: 3, label: 'Wednesday' },
-            { value: 4, label: 'Thursday' },
-            { value: 5, label: 'Friday' },
-            { value: 6, label: 'Saturday' },
-            { value: 0, label: 'Sunday' }
+            { value: 1, label: 'Понеділок' },
+            { value: 2, label: 'Вівторок' },
+            { value: 3, label: 'Середа' },
+            { value: 4, label: 'Четвер' },
+            { value: 5, label: "П'ятниця" },
+            { value: 6, label: 'Субота' },
+            { value: 0, label: 'Неділя' }
           ].map(day => (
             <label key={day.value} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <input
@@ -41,7 +41,7 @@ export default function DaysOffSelector({
       </div>
 
       <div className="form-group">
-        <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--text-color)' }}>Special Days Off</h3>
+        <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--text-color)' }}>Спеціальні вихідні</h3>
         <div style={{ display: 'flex', gap: '8px', marginBottom: 'var(--spacing-md)' }}>
           <input
             type="date"
@@ -53,22 +53,22 @@ export default function DaysOffSelector({
           <input
             type="text"
             className="form-input"
-            placeholder="Reason (optional)"
+            placeholder="Причина (необов'язково)"
             value={newSpecialReason}
             onChange={(e) => setNewSpecialReason(e.target.value)}
             style={{ flex: 1 }}
           />
           <button type="button" className="btn btn-primary" onClick={addSpecialDayOff}>
-            Add
+            Додати
           </button>
         </div>
         {specialDaysOff.length > 0 && (
           <ul style={{ listStyle: 'none', padding: 0 }}>
             {specialDaysOff.map((day, index) => (
               <li key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', background: 'var(--secondary-color)', borderRadius: '4px', marginBottom: '4px' }}>
-                <span>{new Date(day.date).toLocaleDateString()} {day.reason && `- ${day.reason}`}</span>
+                <span>{new Date(day.date).toLocaleDateString('uk-UA')} {day.reason && `— ${day.reason}`}</span>
                 <button type="button" className="btn btn-secondary" onClick={() => removeSpecialDayOff(day.date)}>
-                  Remove
+                  Видалити
                 </button>
               </li>
             ))}

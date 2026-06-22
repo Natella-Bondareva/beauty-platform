@@ -23,6 +23,28 @@ namespace CRMService.Application.Features.Employees.Services
             _imageStorage = imageStorage;
         }
 
+        // Публічний — без перевірки власника
+        public async Task<List<ServiceListItemDto>> GetBySalonPublicAsync(Guid salonId)
+        {
+            var services = await _serviceRepo.GetBySalonIdAsync(salonId);
+            return services
+                .Where(s => s.IsActive)  // ← тільки активні
+                .Select(MapToListItemDto)
+                .ToList();
+        }
+
+        public async Task<ServiceDto> GetByIdPublicAsync(Guid serviceId, Guid salonId)
+        {
+            var service = await _serviceRepo.GetByIdWithImagesAsync(serviceId)
+                ?? throw new KeyNotFoundException("Service not found.");
+            service.EnsureBelongsToSalon(salonId);
+
+            if (!service.IsActive)
+                throw new KeyNotFoundException("Service not found.");
+
+            return MapToDto(service);
+        }
+
         public async Task<Guid> CreateAsync(CreateServiceCommand command, Guid salonId, Guid ownerId)
         {
             await EnsureSalonOwnership(salonId, ownerId);
@@ -167,18 +189,35 @@ namespace CRMService.Application.Features.Employees.Services
             }).ToList()
         };
 
-        private static ServiceListItemDto MapToListItemDto(Domain.Entities.Service s) => new()
+        private static ServiceListItemDto MapToListItemDto(Domain.Entities.Service s)
         {
-            Id = s.Id,
-            CategoryId = s.CategoryId,
-            CategoryName = s.Category?.Name ?? string.Empty,
-            Name = s.Name,
-            SystemDurationMinutes = s.SystemDurationMinutes,
-            ClientDurationMinutes = s.ClientDurationMinutes,
-            Price = s.Price,
-            IsActive = s.IsActive,
-            CoverImageUrl = s.Images.FirstOrDefault(i => i.IsCover)?.ImageUrl,
-            EmployeesCount = s.EmployeeServices.Count
-        };
+            var effectivePrices = s.EmployeeServices
+                .Select(es => es.PriceOverride ?? s.Price)
+                .DefaultIfEmpty(s.Price)
+                .ToList();
+
+            var effectiveDurations = s.EmployeeServices
+                .Select(es => es.ClientDurationOverride ?? s.ClientDurationMinutes)
+                .DefaultIfEmpty(s.ClientDurationMinutes)
+                .ToList();
+
+            return new ServiceListItemDto
+            {
+                Id = s.Id,
+                CategoryId = s.CategoryId,
+                CategoryName = s.Category?.Name ?? string.Empty,
+                Name = s.Name,
+                SystemDurationMinutes = s.SystemDurationMinutes,
+                ClientDurationMinutes = s.ClientDurationMinutes,
+                Price = s.Price,
+                MinPrice = effectivePrices.Min(),
+                MaxPrice = effectivePrices.Max(),
+                MinClientDuration = effectiveDurations.Min(),
+                MaxClientDuration = effectiveDurations.Max(),
+                IsActive = s.IsActive,
+                CoverImageUrl = s.Images.FirstOrDefault(i => i.IsCover)?.ImageUrl,
+                EmployeesCount = s.EmployeeServices.Count
+            };
+        }
     }
 }

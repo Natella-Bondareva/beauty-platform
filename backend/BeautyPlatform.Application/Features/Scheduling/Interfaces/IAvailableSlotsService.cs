@@ -19,6 +19,9 @@ namespace CRMService.Application.Features.Scheduling.Interfaces
         /// <summary>Сценарій 3 — майстер + конкретна послуга</summary>
         Task<EmployeeAvailabilityDto?> GetEmployeeAvailableSlotsAsync(GetEmployeeAvailableSlotsQuery query);
 
+        /// <summary>Сценарій 4 — найближчий вільний слот кожного майстра протягом horizonDays днів</summary>
+        Task<List<NearestSlotDto>> GetNearestSlotsAsync(GetNearestSlotsQuery query);
+
         Task InvalidateCacheAsync(Guid salonId, Guid serviceId, DateOnly date);
     }
 }

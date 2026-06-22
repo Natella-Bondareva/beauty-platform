@@ -22,6 +22,7 @@ namespace CRMService.API.Controllers
         // GET api/salons/{salonId}/categories
         // Повертає глобальні + кастомні категорії цього салону
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAll(Guid salonId)
         {
             var categories = await _categoryService.GetAvailableAsync(salonId);

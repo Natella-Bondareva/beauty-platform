@@ -3,10 +3,10 @@ import React from 'react';
 export default function OwnerInfoStep({ formData, handleChange }) {
   return (
     <div>
-      <h2 className="card-title">Owner Information</h2>
-      <p className="card-subtitle">Tell us about yourself</p>
+      <h2 className="card-title">Інформація про власника</h2>
+      <p className="card-subtitle">Розкажіть про себе</p>
       <div className="form-group">
-        <label className="form-label" htmlFor="firstName">First Name</label>
+        <label className="form-label" htmlFor="firstName">Ім'я</label>
         <input
           type="text"
           id="firstName"
@@ -15,11 +15,11 @@ export default function OwnerInfoStep({ formData, handleChange }) {
           value={formData.firstName}
           onChange={handleChange}
           required
-          placeholder="Enter your first name"
+          placeholder="Введіть ваше ім'я"
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="lastName">Last Name</label>
+        <label className="form-label" htmlFor="lastName">Прізвище</label>
         <input
           type="text"
           id="lastName"
@@ -28,7 +28,7 @@ export default function OwnerInfoStep({ formData, handleChange }) {
           value={formData.lastName}
           onChange={handleChange}
           required
-          placeholder="Enter your last name"
+          placeholder="Введіть ваше прізвище"
         />
       </div>
       <div className="form-group">
@@ -41,11 +41,11 @@ export default function OwnerInfoStep({ formData, handleChange }) {
           value={formData.email}
           onChange={handleChange}
           required
-          placeholder="Enter your email"
+          placeholder="Введіть ваш email"
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="password">Password</label>
+        <label className="form-label" htmlFor="password">Пароль</label>
         <input
           type="password"
           id="password"
@@ -54,7 +54,7 @@ export default function OwnerInfoStep({ formData, handleChange }) {
           value={formData.password}
           onChange={handleChange}
           required
-          placeholder="Create a password"
+          placeholder="Створіть пароль"
         />
       </div>
     </div>

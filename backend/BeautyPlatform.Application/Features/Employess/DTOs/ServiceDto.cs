@@ -31,6 +31,10 @@ namespace CRMService.Application.Features.Employess.DTOs
         public int SystemDurationMinutes { get; set; }
         public int ClientDurationMinutes { get; set; }
         public decimal Price { get; set; }
+        public decimal MinPrice { get; set; }
+        public decimal MaxPrice { get; set; }
+        public int MinClientDuration { get; set; }
+        public int MaxClientDuration { get; set; }
         public bool IsActive { get; set; }
         public string? CoverImageUrl { get; set; }
         public int EmployeesCount { get; set; }

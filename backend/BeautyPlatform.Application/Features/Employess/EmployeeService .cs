@@ -3,7 +3,9 @@ using CRMService.Application.Features.Employees.Interfaces;
 using CRMService.Application.Features.Employess.Commands.Employee_Commands;
 using CRMService.Application.Features.Employess.DTOs;
 using CRMService.Application.Features.Employess.Interfaces;
+using CRMService.Application.Features.Scheduling.Commands;
 using CRMService.Application.Features.Scheduling.DTOs;
+using CRMService.Application.Features.Scheduling.Interfaces;
 using CRMService.Domain.Entities;
 
 namespace CRMService.Application.Features.Employees.Services
@@ -15,19 +17,22 @@ namespace CRMService.Application.Features.Employees.Services
         private readonly ISpecializationCategoryRepository _categoryRepo;
         private readonly ISalonRepository _salonRepo;
         private readonly IUserRepository _userRepo;
+        private readonly IEmployeeBreakRepository _breakRepo;
 
         public EmployeeService(
             IEmployeeRepository employeeRepo,
             IServiceRepository serviceRepo,
             ISpecializationCategoryRepository categoryRepo,
             ISalonRepository salonRepo,
-            IUserRepository userRepo)
+            IUserRepository userRepo,
+            IEmployeeBreakRepository breakRepo)
         {
             _employeeRepo = employeeRepo;
             _serviceRepo = serviceRepo;
             _categoryRepo = categoryRepo;
             _salonRepo = salonRepo;
             _userRepo = userRepo;
+            _breakRepo = breakRepo;
         }
 
         public async Task<Guid> CreateAsync(CreateEmployeeCommand command, Guid salonId, Guid ownerId)
@@ -108,11 +113,40 @@ namespace CRMService.Application.Features.Employees.Services
             await _employeeRepo.UpdateAsync(employee);
         }
 
+        public async Task ActivateAsync(Guid employeeId, Guid salonId, Guid ownerId)
+        {
+            var employee = await GetEmployeeAndEnsureAccess(employeeId, salonId, ownerId);
+            if (employee.IsArchived)
+                throw new InvalidOperationException("Cannot activate an archived employee. Unarchive first.");
+            employee.Activate();
+            await _employeeRepo.UpdateAsync(employee);
+        }
+
         public async Task DeactivateAsync(Guid employeeId, Guid salonId, Guid ownerId)
         {
             var employee = await GetEmployeeAndEnsureAccess(employeeId, salonId, ownerId);
             employee.Deactivate();
             await _employeeRepo.UpdateAsync(employee);
+        }
+
+        public async Task ArchiveAsync(Guid employeeId, Guid salonId, Guid ownerId)
+        {
+            var employee = await GetEmployeeAndEnsureAccess(employeeId, salonId, ownerId);
+            employee.Archive();
+            await _employeeRepo.UpdateAsync(employee);
+        }
+
+        public async Task UnarchiveAsync(Guid employeeId, Guid salonId, Guid ownerId)
+        {
+            var employee = await GetEmployeeAndEnsureAccess(employeeId, salonId, ownerId);
+            employee.Unarchive();
+            await _employeeRepo.UpdateAsync(employee);
+        }
+
+        public async Task DeleteEmployeeAsync(Guid employeeId, Guid salonId, Guid ownerId)
+        {
+            var employee = await GetEmployeeAndEnsureAccess(employeeId, salonId, ownerId);
+            await _employeeRepo.DeleteAsync(employee);
         }
 
         public async Task<EmployeeDto> GetByIdAsync(Guid employeeId, Guid salonId, Guid ownerId)
@@ -236,6 +270,28 @@ namespace CRMService.Application.Features.Employees.Services
             return employee.Id;
         }
 
+        public async Task<List<EmployeeScheduleSummaryDto>> GetAllSchedulesAsync(Guid salonId, Guid ownerId)
+        {
+            await EnsureSalonOwnership(salonId, ownerId);
+            var employees = await _employeeRepo.GetBySalonIdAsync(salonId);
+            return employees
+                .Where(e => e.IsActive)
+                .Select(e => new EmployeeScheduleSummaryDto
+                {
+                    EmployeeId = e.Id,
+                    EmployeeName = e.FullName,
+                    Schedule = e.Schedules
+                        .OrderBy(s => s.DayOfWeek)
+                        .Select(s => new ScheduleDto
+                        {
+                            DayOfWeek = s.DayOfWeek,
+                            IsWorking = s.IsWorking,
+                            StartTime = s.StartTime,
+                            EndTime = s.EndTime
+                        }).ToList()
+                }).ToList();
+        }
+
         // ── Schedule ───────────────────────────────────────────────
         public async Task<ScheduleConstraintsDto> GetScheduleConstraintsAsync(
     Guid employeeId,
@@ -304,6 +360,44 @@ namespace CRMService.Application.Features.Employees.Services
             await _employeeRepo.ReplaceScheduleAsync(employeeId, schedule.Select(s =>
                 new MasterSchedule(employeeId, s.DayOfWeek, s.StartTime, s.EndTime, s.IsWorking)
             ).ToList());
+        }
+
+        public async Task<List<EmployeeListItemDto>> GetBySalonPublicAsync(Guid salonId)
+        {
+            var employees = await _employeeRepo.GetBySalonIdAsync(salonId);
+            return employees
+                .Where(e => e.IsActive && !e.IsArchived && e.Schedules.Any(s => s.IsWorking))
+                .Select(MapToListItemDto)
+                .ToList();
+        }
+
+        public async Task<List<PublicEmployeeForServiceDto>> GetByServicePublicAsync(Guid salonId, Guid serviceId)
+        {
+            var service = await _serviceRepo.GetByIdAsync(serviceId)
+                ?? throw new KeyNotFoundException("Service not found.");
+            service.EnsureBelongsToSalon(salonId);
+
+            var employees = await _employeeRepo.GetActiveByServiceIdAsync(serviceId, salonId);
+            return employees
+                .Where(e => !e.IsArchived && e.Schedules.Any(s => s.IsWorking))
+                .Select(e =>
+                {
+                    var es = e.Services.First(s => s.ServiceId == serviceId);
+                    return new PublicEmployeeForServiceDto
+                    {
+                        Id = e.Id,
+                        FullName = e.FullName,
+                        AvatarUrl = e.AvatarUrl,
+                        Categories = e.Categories
+                            .Select(c => new CategoryShortDto { Id = c.CategoryId, Name = c.Category?.Name ?? string.Empty })
+                            .ToList(),
+                        EffectivePrice = es.PriceOverride ?? service.Price,
+                        EffectiveClientDuration = es.ClientDurationOverride ?? service.ClientDurationMinutes,
+                        HasPriceOverride = es.PriceOverride.HasValue,
+                        HasDurationOverride = es.ClientDurationOverride.HasValue,
+                    };
+                })
+                .ToList();
         }
 
         // ── Private Helpers ────────────────────────────────────────
@@ -430,8 +524,146 @@ namespace CRMService.Application.Features.Employees.Services
                 Name = c.Category?.Name ?? string.Empty
             }).ToList(),
             IsActive = e.IsActive,
+            IsArchived = e.IsArchived,
             HasUserAccount = e.UserId.HasValue,
             ServicesCount = e.Services.Count
+        };
+
+        // ── Master cabinet ─────────────────────────────────────────────────────
+
+        public async Task<EmployeeDto> GetMyProfileAsync(Guid salonId, Guid userId)
+        {
+            var slim = await _employeeRepo.GetByUserIdAsync(userId, salonId)
+                ?? throw new UnauthorizedAccessException("Not an employee of this salon.");
+
+            if (!slim.IsActive)
+                throw new UnauthorizedAccessException("Your account is deactivated.");
+
+            var employee = await _employeeRepo.GetByIdWithServicesAsync(slim.Id)
+                ?? throw new KeyNotFoundException("Employee not found.");
+
+            return MapToDto(employee);
+        }
+
+        public async Task<ScheduleConstraintsDto> GetMyScheduleConstraintsAsync(Guid salonId, Guid userId)
+        {
+            var salon = await _salonRepo.GetByIdAsync(salonId)
+                ?? throw new KeyNotFoundException("Salon not found.");
+
+            var slim = await _employeeRepo.GetByUserIdAsync(userId, salonId)
+                ?? throw new UnauthorizedAccessException("Not an employee of this salon.");
+
+            var employee = await _employeeRepo.GetByIdWithScheduleAsync(slim.Id)
+                ?? throw new KeyNotFoundException("Employee not found.");
+
+            return new ScheduleConstraintsDto
+            {
+                SalonOpeningTime = salon.Settings.OpeningTime,
+                SalonClosingTime = salon.Settings.ClosingTime,
+                SalonDaysOff = salon.Settings.RegularDaysOff
+                    .Select(d => d.DayOfWeek).ToList(),
+                CurrentSchedule = employee.Schedules
+                    .OrderBy(s => s.DayOfWeek)
+                    .Select(s => new ScheduleDto
+                    {
+                        DayOfWeek = s.DayOfWeek,
+                        IsWorking = s.IsWorking,
+                        StartTime = s.StartTime,
+                        EndTime   = s.EndTime
+                    }).ToList()
+            };
+        }
+
+        public async Task SetMyScheduleAsync(Guid salonId, Guid userId, List<ScheduleItemCommand> schedule)
+        {
+            var salon = await _salonRepo.GetByIdAsync(salonId)
+                ?? throw new KeyNotFoundException("Salon not found.");
+
+            var slim = await _employeeRepo.GetByUserIdAsync(userId, salonId)
+                ?? throw new UnauthorizedAccessException("Not an employee of this salon.");
+
+            var salonOpening = salon.Settings.OpeningTime;
+            var salonClosing = salon.Settings.ClosingTime;
+
+            foreach (var day in schedule.Where(s => s.IsWorking))
+            {
+                if (day.StartTime < salonOpening)
+                    throw new InvalidOperationException(
+                        $"Час початку ({day.StartTime:hh\\:mm}) не може бути раніше відкриття салону ({salonOpening:hh\\:mm}).");
+
+                if (day.EndTime > salonClosing)
+                    throw new InvalidOperationException(
+                        $"Час завершення ({day.EndTime:hh\\:mm}) не може бути пізніше закриття салону ({salonClosing:hh\\:mm}).");
+
+                if (day.StartTime >= day.EndTime)
+                    throw new ArgumentException(
+                        $"Час початку має бути меншим за час завершення для {day.DayOfWeek}.");
+            }
+
+            await _employeeRepo.ReplaceScheduleAsync(slim.Id, schedule.Select(s =>
+                new MasterSchedule(slim.Id, s.DayOfWeek, s.StartTime, s.EndTime, s.IsWorking)
+            ).ToList());
+        }
+
+        public async Task<List<EmployeeBreakDto>> GetMyBreaksAsync(Guid salonId, Guid userId, DateOnly date)
+        {
+            var slim = await _employeeRepo.GetByUserIdAsync(userId, salonId)
+                ?? throw new UnauthorizedAccessException("Not an employee of this salon.");
+
+            var breaks = await _breakRepo.GetByEmployeeAndDateAsync(slim.Id, date);
+            return breaks.Select(MapBreakToDto).ToList();
+        }
+
+        public async Task<Guid> AddMyBreakAsync(Guid salonId, Guid userId, CreateBreakCommand command)
+        {
+            var slim = await _employeeRepo.GetByUserIdAsync(userId, salonId)
+                ?? throw new UnauthorizedAccessException("Not an employee of this salon.");
+
+            var employee = await _employeeRepo.GetByIdWithScheduleAsync(slim.Id)
+                ?? throw new KeyNotFoundException("Employee not found.");
+
+            var schedule = employee.Schedules
+                .FirstOrDefault(s => s.DayOfWeek == command.Date.DayOfWeek);
+
+            if (schedule is null || !schedule.IsWorking)
+                throw new InvalidOperationException("Cannot add a break on a non-working day.");
+
+            if (command.StartTime < schedule.StartTime || command.EndTime > schedule.EndTime)
+                throw new InvalidOperationException(
+                    $"Break must be within working hours ({schedule.StartTime:hh\\:mm}–{schedule.EndTime:hh\\:mm}).");
+
+            var existing = await _breakRepo.GetByEmployeeAndDateAsync(slim.Id, command.Date);
+            if (existing.Any(b => b.OverlapsWith(command.StartTime, command.EndTime)))
+                throw new InvalidOperationException("Break overlaps with an existing break.");
+
+            var newBreak = new EmployeeBreak(slim.Id, command.Date,
+                command.StartTime, command.EndTime, command.Reason);
+            await _breakRepo.AddAsync(newBreak);
+            return newBreak.Id;
+        }
+
+        public async Task DeleteMyBreakAsync(Guid salonId, Guid userId, Guid breakId)
+        {
+            var slim = await _employeeRepo.GetByUserIdAsync(userId, salonId)
+                ?? throw new UnauthorizedAccessException("Not an employee of this salon.");
+
+            var employeeBreak = await _breakRepo.GetByIdAsync(breakId)
+                ?? throw new KeyNotFoundException("Break not found.");
+
+            if (employeeBreak.EmployeeId != slim.Id)
+                throw new UnauthorizedAccessException("You can only delete your own breaks.");
+
+            await _breakRepo.DeleteAsync(employeeBreak);
+        }
+
+        private static EmployeeBreakDto MapBreakToDto(EmployeeBreak b) => new()
+        {
+            Id         = b.Id,
+            EmployeeId = b.EmployeeId,
+            Date       = b.Date,
+            StartTime  = b.StartTime,
+            EndTime    = b.EndTime,
+            Reason     = b.Reason
         };
     }
 }

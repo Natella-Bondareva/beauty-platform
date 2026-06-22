@@ -13,33 +13,43 @@ function parseUserName(token) {
 
 function readLocalStorage() {
   return {
-    token: localStorage.getItem('token') ?? null,
+    token:  localStorage.getItem('token')  ?? null,
     salonId: localStorage.getItem('salonId') ?? null,
-    userId: localStorage.getItem('userId') ?? null,
+    userId:  localStorage.getItem('userId')  ?? null,
+    role:    localStorage.getItem('role')    ?? null,
   };
 }
 
 export const useAuthStore = create((set) => {
-  const { token, salonId, userId } = readLocalStorage();
+  const { token, salonId, userId, role } = readLocalStorage();
 
   return {
     token,
     salonId,
     userId,
+    role,
     userName: token ? parseUserName(token) : '',
 
-    setAuth: ({ token: t, salonId: s, userId: u }) => {
+    setAuth: ({ token: t, salonId: s, userId: u, role: r }) => {
       localStorage.setItem('token', t);
       if (s) localStorage.setItem('salonId', s);
       if (u) localStorage.setItem('userId', u);
-      set({ token: t, salonId: s ?? null, userId: u ?? null, userName: parseUserName(t) });
+      if (r) localStorage.setItem('role', r);
+      set({
+        token: t,
+        salonId: s ?? null,
+        userId: u ?? null,
+        role: r ?? null,
+        userName: parseUserName(t),
+      });
     },
 
     clearAuth: () => {
       localStorage.removeItem('token');
       localStorage.removeItem('salonId');
       localStorage.removeItem('userId');
-      set({ token: null, salonId: null, userId: null, userName: '' });
+      localStorage.removeItem('role');
+      set({ token: null, salonId: null, userId: null, role: null, userName: '' });
     },
   };
 });

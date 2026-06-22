@@ -1,6 +1,6 @@
 ﻿using CRMService.Application.Features.Scheduling.DTOs;
 using CRMService.Application.Features.Scheduling.Interfaces;
-using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Text.Json;
 using IDatabase = StackExchange.Redis.IDatabase;
@@ -10,24 +10,65 @@ namespace CRMService.Infrastructure.Caching
     public class RedisSlotCacheService : ISlotCacheService
     {
         private readonly IDatabase _db;
+        private readonly ILogger<RedisSlotCacheService> _logger;
 
-        public RedisSlotCacheService(IConnectionMultiplexer redis)
+        // PropertyNameCaseInsensitive захищає від невідповідності регістру між Write/Read.
+        private static readonly JsonSerializerOptions _jsonOptions = new()
         {
-            _db = redis.GetDatabase();
+            PropertyNameCaseInsensitive = true,
+        };
+
+        public RedisSlotCacheService(IConnectionMultiplexer redis, ILogger<RedisSlotCacheService> logger)
+        {
+            _db     = redis.GetDatabase();
+            _logger = logger;
         }
 
         public async Task<List<AvailableSlotDto>?> GetAsync(string cacheKey)
         {
-            var value = await _db.StringGetAsync(cacheKey);
-            if (!value.HasValue) return null;
+            RedisValue value;
+            try
+            {
+                value = await _db.StringGetAsync(cacheKey);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Redis read failed for {Key}", cacheKey);
+                return null;
+            }
 
-            return JsonSerializer.Deserialize<List<AvailableSlotDto>>(value!);
+            if (!value.HasValue || value.IsNullOrEmpty)
+            {
+                _logger.LogDebug("Cache MISS: {Key}", cacheKey);
+                return null;
+            }
+
+            try
+            {
+                var result = JsonSerializer.Deserialize<List<AvailableSlotDto>>(value!, _jsonOptions);
+                _logger.LogDebug("Cache HIT: {Key} ({Count} slots)", cacheKey, result?.Count ?? 0);
+                return result;
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Cache deserialization failed for {Key} — evicting stale entry", cacheKey);
+                await _db.KeyDeleteAsync(cacheKey);
+                return null;
+            }
         }
 
         public async Task SetAsync(string cacheKey, List<AvailableSlotDto> slots, TimeSpan ttl)
         {
-            var json = JsonSerializer.Serialize(slots);
-            await _db.StringSetAsync(cacheKey, json, ttl);
+            try
+            {
+                var json = JsonSerializer.Serialize(slots, _jsonOptions);
+                await _db.StringSetAsync(cacheKey, json, ttl);
+                _logger.LogDebug("Cache SET: {Key} ({Count} slots, TTL {Ttl})", cacheKey, slots.Count, ttl);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Cache write failed for {Key} — continuing without cache", cacheKey);
+            }
         }
 
         public async Task RemoveAsync(string cacheKey)

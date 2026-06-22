@@ -29,5 +29,6 @@ namespace CRMService.Application.Features.Employees.Interfaces
             decimal? priceOverride,
             int? systemDurationOverride,
             int? clientDurationOverride);
+        Task<List<Employee>> GetBySalonWithSchedulesAsync(Guid salonId);
     }
 }

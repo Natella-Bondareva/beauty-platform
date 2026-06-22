@@ -11,6 +11,7 @@ namespace CRMService.Application.Features.Scheduling.Interfaces
     {
         Task<EmployeeBreak?> GetByIdAsync(Guid id);
         Task<List<EmployeeBreak>> GetByEmployeeAndDateAsync(Guid employeeId, DateOnly date);
+        Task<List<EmployeeBreak>> GetByEmployeesAndDateAsync(IReadOnlyList<Guid> employeeIds, DateOnly date);
         Task<List<EmployeeBreak>> GetByEmployeeAndDateRangeAsync(Guid employeeId, DateOnly from, DateOnly to);
         Task AddAsync(EmployeeBreak employeeBreak);
         Task UpdateAsync(EmployeeBreak employeeBreak);

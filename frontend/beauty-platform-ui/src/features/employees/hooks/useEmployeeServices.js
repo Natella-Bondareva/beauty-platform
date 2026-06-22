@@ -26,8 +26,12 @@ export function useEmployeeServices(employeeId) {
   });
 
   const updatePriceMutation = useMutation({
-    mutationFn: ({ serviceId, priceOverride }) =>
-      employeeApi.updateServicePrice(salonId, employeeId, serviceId, priceOverride),
+    mutationFn: ({ serviceId, priceOverride, systemDurationOverride, clientDurationOverride }) =>
+      employeeApi.updateServiceOverrides(salonId, employeeId, serviceId, {
+        priceOverride,
+        systemDurationOverride: systemDurationOverride ?? null,
+        clientDurationOverride: clientDurationOverride ?? null,
+      }),
     onSuccess: invalidate,
   });
 

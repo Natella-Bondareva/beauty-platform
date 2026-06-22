@@ -2,6 +2,7 @@
 using CRMService.Application.Features.Auth.Interfaces;
 using CRMService.Application.Features.Employees.Interfaces;
 using CRMService.Application.Features.Employess.DTOs;
+using CRMService.Application.Features.Pricing.Interfaces;
 using CRMService.Application.Features.Scheduling.DTOs;
 using CRMService.Domain.Entities;
 using System;
@@ -16,16 +17,20 @@ namespace CRMService.Application.Features.Auth.Commands
     {
         private readonly ISalonRepository _repository;
         private readonly IUserRepository _userRepository;
-        private readonly IEmployeeRepository _employeeRepo; 
+        private readonly IEmployeeRepository _employeeRepo;
+        private readonly ISubscriptionRepository _subscriptionRepository;
+
 
         public SalonService(
             ISalonRepository repository,
             IUserRepository userRepository, 
-            IEmployeeRepository employeeRepo)    
+            IEmployeeRepository employeeRepo,
+            ISubscriptionRepository subscriptionRepository)
         {
             _repository = repository;
             _userRepository = userRepository; 
             _employeeRepo = employeeRepo;
+            _subscriptionRepository = subscriptionRepository; 
         }
 
         public async Task<Guid> CreateAsync(CreateSalonCommand command, Guid ownerId)
@@ -44,6 +49,9 @@ namespace CRMService.Application.Features.Auth.Commands
 
             user.AssignToSalon(salon.Id);
             await _userRepository.UpdateAsync(user);
+
+            var subscription = Subscription.CreateFree(salon.Id);
+            await _subscriptionRepository.AddAsync(subscription);
 
             return salon.Id;
         }
@@ -114,7 +122,6 @@ namespace CRMService.Application.Features.Auth.Commands
 
             await _repository.UpdateAsync(salon);
         }
-        
 
         public async Task AddRegularDayOffAsync(Guid salonId, DayOfWeek dayOfWeek, Guid ownerId)
         {

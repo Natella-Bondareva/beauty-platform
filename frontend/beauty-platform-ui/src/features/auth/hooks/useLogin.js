@@ -11,11 +11,18 @@ export function useLogin() {
     mutationFn: (credentials) => authApi.login(credentials),
     onSuccess: ({ data }) => {
       setAuth({
-        token: data.token,
+        token:   data.token,
         salonId: data.salonId ?? null,
-        userId: data.userId ?? null,
+        userId:  data.userId  ?? null,
+        role:    data.role    ?? null,
       });
-      navigate('/dashboard');
+
+      // Redirect based on role
+      if (data.role === 'Employee') {
+        navigate('/master');
+      } else {
+        navigate('/dashboard');
+      }
     },
   });
 }

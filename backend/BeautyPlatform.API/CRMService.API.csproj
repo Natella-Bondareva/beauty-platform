@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.23" />
+    <PackageReference Include="Hangfire.PostgreSql" Version="1.21.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.14" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.9" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.14">
@@ -22,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BeautyPlatform.Application\CRMService.Application.csproj" />
+    <ProjectReference Include="..\BeautyPlatform.Domain\CRMService.Domain.csproj" />
     <ProjectReference Include="..\BeautyPlatform.Infrastructure\CRMService.Infrastructure.csproj" />
   </ItemGroup>
 

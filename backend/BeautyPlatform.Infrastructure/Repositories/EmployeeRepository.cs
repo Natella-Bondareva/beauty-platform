@@ -102,7 +102,14 @@ namespace CRMService.Infrastructure.Repositories
             await _context.SaveChangesAsync();
         }
 
-        // ✓ Оновлений метод — замість UpdateEmployeeServicePriceAsync
+        public async Task<List<Employee>> GetBySalonWithSchedulesAsync(Guid salonId)
+        {
+            return await _context.Employees
+                .Include(e => e.Schedules)
+                .Where(e => e.SalonId == salonId)
+                .ToListAsync();
+        }
+
         public async Task UpdateEmployeeServiceOverridesAsync(
             Guid employeeId,
             Guid serviceId,
@@ -151,6 +158,8 @@ namespace CRMService.Infrastructure.Repositories
         public async Task<List<Employee>> GetActiveByServiceIdAsync(Guid serviceId, Guid salonId)
         {
             return await _context.Employees
+                .Include(e => e.Categories)
+                    .ThenInclude(ec => ec.Category)
                 .Include(e => e.Services)
                     .ThenInclude(es => es.Service)
                 .Include(e => e.Schedules)

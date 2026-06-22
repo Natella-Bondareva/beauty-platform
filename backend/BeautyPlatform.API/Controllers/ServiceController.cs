@@ -18,21 +18,40 @@ namespace CRMService.API.Controllers
             _serviceService = serviceService;
         }
 
-        // GET api/salons/{salonId}/services
+        //// GET api/salons/{salonId}/services
+        //[HttpGet]
+        //public async Task<IActionResult> GetAll(Guid salonId)
+        //{
+        //    var ownerId = GetUserId();
+        //    var services = await _serviceService.GetBySalonAsync(salonId, ownerId);
+        //    return Ok(services);
+        //}
+
+        //// GET api/salons/{salonId}/services/{id}
+        //[HttpGet("{id}")]
+        //public async Task<IActionResult> GetById(Guid salonId, Guid id)
+        //{
+        //    var ownerId = GetUserId();
+        //    var service = await _serviceService.GetByIdAsync(id, salonId, ownerId);
+        //    return Ok(service);
+        //}
+
+        // GET api/salons/{salonId}/services — ПУБЛІЧНИЙ
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAll(Guid salonId)
         {
-            var ownerId = GetUserId();
-            var services = await _serviceService.GetBySalonAsync(salonId, ownerId);
+            // ✓ без GetUserId() — публічний метод
+            var services = await _serviceService.GetBySalonPublicAsync(salonId);
             return Ok(services);
         }
 
-        // GET api/salons/{salonId}/services/{id}
+        // GET api/salons/{salonId}/services/{id} — ПУБЛІЧНИЙ
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(Guid salonId, Guid id)
         {
-            var ownerId = GetUserId();
-            var service = await _serviceService.GetByIdAsync(id, salonId, ownerId);
+            var service = await _serviceService.GetByIdPublicAsync(id, salonId);
             return Ok(service);
         }
 

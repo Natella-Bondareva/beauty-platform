@@ -13,6 +13,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
     <PackageReference Include="StackExchange.Redis" Version="2.12.14" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.17.0" />
@@ -21,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BeautyPlatform.Application\CRMService.Application.csproj" />
+    <ProjectReference Include="..\BeautyPlatform.Domain\CRMService.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,12 +1,17 @@
 ﻿using CloudinaryDotNet;
 using CRMService.API;
 using CRMService.Application.Features.Auth.Commands;
+using CRMService.Application.Features.Auth.DTOs;
 using CRMService.Application.Features.Auth.Interfaces;
 using CRMService.Application.Features.BookingServices.Interfaces;
 using CRMService.Application.Features.BookingServices.Services;
 using CRMService.Application.Features.Employees.Interfaces;
 using CRMService.Application.Features.Employees.Services;
 using CRMService.Application.Features.Employess.Interfaces;
+using CRMService.Application.Features.Pricing.Interfaces;
+using CRMService.Application.Features.Pricing.Services;
+using CRMService.Application.Features.SalaryModule.Interfaces;
+using CRMService.Application.Features.SalaryModule.Services;
 using CRMService.Application.Features.Scheduling.Interfaces;
 using CRMService.Application.Features.Scheduling.Services;
 using CRMService.Domain.Abstractions;
@@ -26,6 +31,9 @@ using Serilog;
 using StackExchange.Redis;
 using System.Text;
 using static CRMService.Infrastructure.Services.TwilioSmsService;
+
+// 100 VU × кілька async операцій — збільшуємо мінімум потоків щоб уникнути черги в thread pool.
+ThreadPool.SetMinThreads(200, 200);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -78,30 +86,47 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// Npgsql 6+ requires explicit UTC kind for timestamp with time zone.
+// Legacy switch keeps existing behavior across all DateTime usages.
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 // ===== DATABASE =====
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("Default"),
+        npgsql => npgsql.MinBatchSize(1).MaxBatchSize(100)));
 
 // ===== REDIS (з fallback якщо недоступний) =====
 try
 {
-    var redisConnection = ConnectionMultiplexer.Connect(
-        builder.Configuration.GetConnectionString("Redis")
-            ?? "localhost:6379,abortConnect=false");
+    var redisConnStr = builder.Configuration.GetConnectionString("Redis")
+        ?? "localhost:6379,connectTimeout=2000,syncTimeout=2000,allowAdmin=true";
+
+    var redisConnection = ConnectionMultiplexer.Connect(redisConnStr);
     builder.Services.AddSingleton<IConnectionMultiplexer>(redisConnection);
     builder.Services.AddSingleton<ISlotCacheService, RedisSlotCacheService>();
+    Log.Information("Redis підключено ({Endpoint}) — кешування слотів активне.",
+        redisConnection.GetEndPoints().FirstOrDefault());
 }
-catch
+catch (Exception ex)
 {
-    // Redis недоступний — використовуємо заглушку без кешування
+    Log.Warning("Redis недоступний ({Message}) — використовується NoOpSlotCacheService. " +
+                "Запусти: docker compose up -d redis", ex.Message);
     builder.Services.AddSingleton<ISlotCacheService, NoOpSlotCacheService>();
 }
 
 // ===== HANGFIRE =====
 builder.Services.AddHangfire(config => config
-    .UsePostgreSqlStorage(builder.Configuration
-        .GetConnectionString("Default")));
-builder.Services.AddHangfireServer();
+    .UsePostgreSqlStorage(options =>
+    {
+        options.UseNpgsqlConnection(
+            builder.Configuration.GetConnectionString("Default"));
+    }));
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = 2;
+    options.Queues = new[] { "default" };
+});
 
 // ===== CLOUDINARY =====
 var cloudinaryConfig = builder.Configuration.GetSection("Cloudinary");
@@ -157,8 +182,21 @@ builder.Services.AddScoped<IEmployeeBreakRepository, EmployeeBreakRepository>();
 builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddScoped<IClientRepository, ClientRepository>();
-builder.Services.AddScoped<ISmsService, TwilioSmsService>();
+builder.Services.AddScoped<IClientService, ClientService>();
+//builder.Services.AddScoped<ISmsService, TwilioSmsService>();
+builder.Services.AddScoped<ISmsService, MockSmsService>();
 builder.Services.AddScoped<BookingJobsService>();
+builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+builder.Services.AddScoped<ISubscriptionPaymentRepository, SubscriptionPaymentRepository>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<IBookingFieldRepository, BookingFieldRepository>();
+builder.Services.AddScoped<IBookingFieldService, BookingFieldService>();
+builder.Services.AddScoped<IBookingFieldAnswerRepository, BookingFieldAnswerRepository>();
+builder.Services.AddScoped<IBookingFieldAnswerService, BookingFieldAnswerService>();
+builder.Services.AddScoped<IContractRepository, ContractRepository>();
+builder.Services.AddScoped<ISalaryPaymentRepository, SalaryPaymentRepository>();
+builder.Services.AddScoped<ISalaryService, SalaryService>();
+builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 
 // ===== EXCEPTION HANDLER =====
 builder.Services.AddProblemDetails();
@@ -176,7 +214,24 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseExceptionHandler();
+app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
+{
+    var feature = ctx.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+    var ex = feature?.Error;
+
+    var (status, title) = ex switch
+    {
+        KeyNotFoundException        => (StatusCodes.Status404NotFound,            "Not Found"),
+        ArgumentException           => (StatusCodes.Status400BadRequest,          "Bad Request"),
+        InvalidOperationException   => (StatusCodes.Status409Conflict,            "Conflict"),
+        UnauthorizedAccessException => (StatusCodes.Status403Forbidden,           "Forbidden"),
+        _                           => (StatusCodes.Status500InternalServerError, "Server Error")
+    };
+
+    ctx.Response.StatusCode  = status;
+    ctx.Response.ContentType = "application/problem+json";
+    await ctx.Response.WriteAsJsonAsync(new { title, status, detail = ex?.Message });
+}));
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -189,3 +244,5 @@ app.UseHangfireDashboard("/hangfire");
 BookingJobsRegistration.RegisterRecurringJobs();
 
 app.Run();
+
+public partial class Program { }

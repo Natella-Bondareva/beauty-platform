@@ -19,14 +19,6 @@ namespace CRMService.API.Controllers
             _service = service;
         }
 
-        // Тимчасово в SalonController — щоб побачити всі claims з токена
-        [HttpGet("debug-claims")]
-        public IActionResult DebugClaims()
-        {
-            var claims = User.Claims.Select(c => new { c.Type, c.Value });
-            return Ok(claims);
-        }
-
         [HttpPost]
         public async Task<IActionResult> Create(CreateSalonCommand command)
         {
@@ -37,6 +29,7 @@ namespace CRMService.API.Controllers
         }
 
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<IActionResult> Get(Guid id)
         {
             var ownerId = GetUserId();

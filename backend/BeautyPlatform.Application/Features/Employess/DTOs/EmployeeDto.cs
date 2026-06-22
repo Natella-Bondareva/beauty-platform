@@ -28,10 +28,23 @@ namespace CRMService.Application.Features.Employess.DTOs
         public string FullName { get; set; } = default!;
         public string Phone { get; set; } = default!;
         public string? AvatarUrl { get; set; }
-        public List<CategoryShortDto> Categories { get; set; } = new(); // ← список
+        public List<CategoryShortDto> Categories { get; set; } = new();
         public bool IsActive { get; set; }
+        public bool IsArchived { get; set; }
         public bool HasUserAccount { get; set; }
         public int ServicesCount { get; set; }
+    }
+
+    public class PublicEmployeeForServiceDto
+    {
+        public Guid Id { get; set; }
+        public string FullName { get; set; } = default!;
+        public string? AvatarUrl { get; set; }
+        public List<CategoryShortDto> Categories { get; set; } = new();
+        public decimal EffectivePrice { get; set; }
+        public int EffectiveClientDuration { get; set; }
+        public bool HasPriceOverride { get; set; }
+        public bool HasDurationOverride { get; set; }
     }
 
     public class CategoryShortDto
@@ -68,5 +81,12 @@ namespace CRMService.Application.Features.Employess.DTOs
         public bool IsWorking { get; set; }
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
+    }
+
+    public class EmployeeScheduleSummaryDto
+    {
+        public Guid EmployeeId { get; set; }
+        public string EmployeeName { get; set; } = default!;
+        public List<ScheduleDto> Schedule { get; set; } = new();
     }
 }

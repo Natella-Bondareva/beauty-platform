@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npx react-scripts:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(xargs grep:*)",
+      "Read(//d/beauty-platform/backend/BeautyPlatform.API/Controllers/**)",
+      "Read(//d/beauty-platform/backend/BeautyPlatform.API/**)"
+    ],
+    "additionalDirectories": [
+      "d:\\beauty-platform\\backend\\BeautyPlatform.Application\\Features\\Employess\\Interfaces",
+      "d:\\beauty-platform\\backend\\BeautyPlatform.Application\\Features\\BookingServices\\Interfaces"
     ]
   }
 }

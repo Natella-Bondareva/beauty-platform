@@ -40,6 +40,7 @@ namespace CRMService.Infrastructure.Repositories
         {
             return await _context.Services
                 .Include(s => s.Images)
+                .Include(s => s.EmployeeServices)
                 .Where(s => s.SalonId == salonId)
                 .OrderBy(s => s.Name)
                 .ToListAsync();

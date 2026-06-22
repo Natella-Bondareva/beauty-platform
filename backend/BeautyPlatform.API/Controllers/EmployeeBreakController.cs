@@ -18,15 +18,32 @@ namespace CRMService.API.Controllers
         }
 
         // GET /api/salons/{salonId}/employees/{employeeId}/breaks?date=2024-04-05
+        // GET /api/salons/{salonId}/employees/{employeeId}/breaks?dateFrom=2026-05-05&dateTo=2026-05-11
         [HttpGet]
         public async Task<IActionResult> GetBreaks(
             Guid salonId,
             Guid employeeId,
-            [FromQuery] DateOnly date)
+            [FromQuery] DateOnly? date,
+            [FromQuery] DateOnly? dateFrom,
+            [FromQuery] DateOnly? dateTo)
         {
             var ownerId = GetUserId();
-            var breaks = await _breakService.GetByEmployeeAndDateAsync(employeeId, date, salonId, ownerId);
-            return Ok(breaks);
+
+            if (dateFrom.HasValue && dateTo.HasValue)
+            {
+                var range = await _breakService.GetByEmployeeAndDateRangeAsync(
+                    employeeId, dateFrom.Value, dateTo.Value, salonId, ownerId);
+                return Ok(range);
+            }
+
+            if (date.HasValue)
+            {
+                var breaks = await _breakService.GetByEmployeeAndDateAsync(
+                    employeeId, date.Value, salonId, ownerId);
+                return Ok(breaks);
+            }
+
+            return BadRequest("Provide either 'date' or both 'dateFrom' and 'dateTo'.");
         }
 
         // POST /api/salons/{salonId}/employees/{employeeId}/breaks

@@ -1,4 +1,5 @@
-﻿using CRMService.Application.Features.Scheduling.Interfaces;
+﻿using CRMService.Application.Features.Scheduling.DTOs;
+using CRMService.Application.Features.Scheduling.Interfaces;
 using CRMService.Application.Features.Scheduling.Queries;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -81,6 +82,25 @@ namespace CRMService.API.Controllers
 
                 return Ok(result);
             }
+        }
+
+        /// <summary>
+        /// Сценарій 4 — найближчий вільний слот кожного майстра протягом 14 днів.
+        /// Повертає список, відсортований за часом найближчого слоту.
+        /// GET /api/salons/{salonId}/nearest-slots?serviceId=X
+        /// </summary>
+        [HttpGet("nearest-slots")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetNearestSlots(
+            Guid salonId,
+            [FromQuery] Guid? serviceId)
+        {
+            if (!serviceId.HasValue || serviceId == Guid.Empty)
+                return BadRequest("serviceId is required.");
+
+            var query = new GetNearestSlotsQuery(salonId, serviceId.Value);
+            var result = await _slotsService.GetNearestSlotsAsync(query);
+            return Ok(result);
         }
 
         // ── Helper ─────────────────────────────────────────────────

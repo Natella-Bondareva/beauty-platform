@@ -10,6 +10,8 @@ namespace CRMService.Application.Features.BookingServices.Filters
     public class BookingFilterDto
     {
         public DateOnly? Date { get; set; }
+        public DateOnly? DateFrom { get; set; }
+        public DateOnly? DateTo { get; set; }
         public Guid? EmployeeId { get; set; }
         public BookingStatus? Status { get; set; }
     }

@@ -26,6 +26,8 @@ namespace CRMService.Infrastructure.Repositories
                 .Include(b => b.Client)
                 .Include(b => b.Employee)
                 .Include(b => b.Service)
+                .Include(b => b.FieldAnswers)
+                    .ThenInclude(a => a.Field)
                 .FirstOrDefaultAsync(b => b.Id == id);
 
         public async Task<List<Booking>> GetBySalonAsync(Guid salonId, BookingFilterDto filter)
@@ -34,11 +36,21 @@ namespace CRMService.Infrastructure.Repositories
                 .Include(b => b.Client)
                 .Include(b => b.Employee)
                 .Include(b => b.Service)
+                .Include(b => b.FieldAnswers)
+                    .ThenInclude(a => a.Field)
                 .Where(b => b.SalonId == salonId);
 
             if (filter.Date.HasValue)
                 query = query.Where(b =>
                     DateOnly.FromDateTime(b.StartTimeUtc) == filter.Date.Value);
+
+            if (filter.DateFrom.HasValue)
+                query = query.Where(b =>
+                    DateOnly.FromDateTime(b.StartTimeUtc) >= filter.DateFrom.Value);
+
+            if (filter.DateTo.HasValue)
+                query = query.Where(b =>
+                    DateOnly.FromDateTime(b.StartTimeUtc) <= filter.DateTo.Value);
 
             if (filter.EmployeeId.HasValue)
                 query = query.Where(b => b.EmployeeId == filter.EmployeeId.Value);
@@ -52,12 +64,35 @@ namespace CRMService.Infrastructure.Repositories
         }
 
         public async Task<List<Booking>> GetByEmployeeAndDateAsync(Guid employeeId, DateOnly date)
-            => await _context.Bookings
+        {
+            var (start, end) = DayRange(date);
+            return await _context.Bookings
                 .Where(b =>
                     b.EmployeeId == employeeId &&
-                    DateOnly.FromDateTime(b.StartTimeUtc) == date &&
+                    b.StartTimeUtc >= start && b.StartTimeUtc < end &&
                     b.Status != BookingStatus.Cancelled)
                 .ToListAsync();
+        }
+
+        // Один запит замість N (по одному на кожного майстра).
+        public async Task<List<Booking>> GetByEmployeesAndDateAsync(
+            IReadOnlyList<Guid> employeeIds, DateOnly date)
+        {
+            if (employeeIds.Count == 0) return [];
+            var (start, end) = DayRange(date);
+            return await _context.Bookings
+                .Where(b =>
+                    employeeIds.Contains(b.EmployeeId) &&
+                    b.StartTimeUtc >= start && b.StartTimeUtc < end &&
+                    b.Status != BookingStatus.Cancelled)
+                .ToListAsync();
+        }
+
+        private static (DateTime Start, DateTime End) DayRange(DateOnly date)
+        {
+            var start = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            return (start, start.AddDays(1));
+        }
 
         public async Task<bool> IsSlotTakenAsync(
             Guid employeeId, DateTime startUtc, DateTime endUtc, Guid? excludeBookingId = null)
@@ -100,5 +135,44 @@ namespace CRMService.Infrastructure.Repositories
 
         public async Task UpdateAsync(Booking booking)
             => await _context.SaveChangesAsync();
+
+        // BookingRepository — реалізація
+        public async Task<List<Booking>> GetCompletedByMasterAsync(
+            Guid masterId,
+            DateTime from,
+            DateTime to)
+        {
+            return await _context.Bookings
+                .Where(b =>
+                    b.EmployeeId == masterId &&
+                    b.Status == BookingStatus.Completed &&
+                    b.CompletedAt >= from &&
+                    b.CompletedAt <= to)
+                .ToListAsync();
+        }
+
+        public async Task<List<Booking>> GetPlannedByMasterAsync(
+            Guid masterId,
+            DateTime from,
+            DateTime to)
+        {
+            // Заплановані = підтверджені але ще не виконані в межах періоду
+            return await _context.Bookings
+                .Where(b =>
+                    b.EmployeeId == masterId &&
+                    b.Status == BookingStatus.Confirmed &&
+                    b.StartTimeUtc >= from &&
+                    b.StartTimeUtc <= to)
+                .ToListAsync();
+        }
+
+        public async Task<List<Booking>> GetByClientPhoneAsync(Guid salonId, string phone)
+            => await _context.Bookings
+                .Include(b => b.Client)
+                .Include(b => b.Employee)
+                .Include(b => b.Service)
+                .Where(b => b.SalonId == salonId && b.Client.Phone == phone)
+                .OrderByDescending(b => b.StartTimeUtc)
+                .ToListAsync();
     }
 }
